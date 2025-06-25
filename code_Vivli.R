@@ -686,7 +686,8 @@ s_aureus_model <- s_aureus_comparison$models[[4]]
 
 #Adding class to bug dfs
 a_baumannii <- a_baumannii %>%
-  cbind(a_baumannii_model$predclass) 
+  cbind(as.factor(a_baumannii_model$predclass)) %>%
+  rename(Cluster= `as.factor(a_baumannii_model$predclass)`)
 
 e_faecium <- e_faecium %>%
   cbind(e_faecium_model$predclass)
@@ -706,16 +707,17 @@ s_aureus <- s_aureus %>%
 #Adding genetic data
 a_baumannii <- a_baumannii %>%
   left_join(a_baumannii_genetics, by="Isolate.Id") %>%
-  janitor::remove_empty(which = "cols") #removing columns with only NAs
+  janitor::remove_empty(which = "cols") %>% #removing columns with only NAs
+  mutate(across(c(SHV, TEM, VEB, PER, GES, KPC, OXA, NDM, IMP, VIM, SPM, GIM),as.factor))
 
 #Running regression with class as output
 
 #Set reference class
-a_baumannii$`a_baumannii_model$predclass` <- relevel(a_baumannii$`a_baumannii_model$predclass`, ref = "Pan-susceptible")
+a_baumannii$`a_baumannii_model$predclass` <- relevel(a_baumannii$Cluster, ref = 1)
 
-a_baumannii_multinom <- multinom(a_baumannii_model$predclass ~ Super_Region.x + Gender + Age.Group + 
-                                   Speciality + Source + In...Out.Patient + Year + PER 
-                                 + GES + OXA + NDM, data = a_baumannii) #Removed genetic vars with <2 lvl
+
+a_baumannii_multinom <- multinom(Cluster ~ Super_Region.x + Gender + Age.Group + 
+                                   Speciality + Source + In...Out.Patient + Year, data = a_baumannii) #Removed genetic vars with <2 lvl
 
 e_faecium_multinom <- multinom(e_faecium_model$predclass ~ Super_Region + Gender + Age.Group + 
                                  Speciality + Source + In...Out.Patient + Year, data = e_faecium)
@@ -734,15 +736,16 @@ k_pneumoniae_multinom <- multinom(k_pneumoniae_model$predclass ~ Super_Region + 
 library(gtsummary)
 
 a_baumannii_1 <- a_baumannii %>%
-  filter(`a_baumannii_model$predclass`==)
+  filter(Cluster== 1)
 
 a_baumannii_1 %>%
-  dplyr::select(Super_Region, Gender, Age.Group, Speciality,
-                Source, In...Out.Patient, Year) %>%
+  dplyr::select(Super_Region.x, Gender, Age.Group, Speciality,
+                Source, In...Out.Patient, Year, SHV, TEM, VEB, PER,
+                GES, KPC, OXA, NDM, IMP, VIM, SPM, GIM) %>%
   tbl_summary()
 
 a_baumannii_2 <- a_baumannii %>%
-  filter(`a_baumannii_model$predclass`==2)
+  filter(Cluster==2)
 
 a_baumannii_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -750,15 +753,16 @@ a_baumannii_2 %>%
   tbl_summary()
 
 a_baumannii_3 <- a_baumannii %>%
-  filter(`a_baumannii_model$predclass`=="CRAB MDRAB")
+  filter(Cluster==3)
 
 a_baumannii_3 %>%
-  dplyr::select(Super_Region, Gender, Age.Group, Speciality,
-                Source, In...Out.Patient, Year) %>%
+  dplyr::select(Super_Region.x, Gender, Age.Group, Speciality,
+                Source, In...Out.Patient, Year, SHV, TEM, VEB, PER,
+                GES, KPC, OXA, NDM, IMP, VIM, SPM, GIM) %>%
   tbl_summary()
 
 a_baumannii_4 <- a_baumannii %>%
-  filter(`a_baumannii_model$predclass`==4)
+  filter(Cluster==4)
 
 a_baumannii_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1360,8 +1364,8 @@ list_of_dfs_by_bug_region <- eskape_pathogens %>%
 #saveRDS(Vivli + data validation, "amr_processed_data.rds")
 
 ####TESTING OUT PREDICTIVE MODELLING OF CLUSTER MEMBERSHIP
-a_baumannii_prediction <- a_baumannii %>%
-  count(Super_Region, Year, `a_baumannii_model$predclass`) %>% 
+a_baumannii_prediction_clean <- a_baumannii %>%
+  count(Super_Region, Year, Cluster) %>% 
   group_by(Super_Region, Year) %>%                             
   mutate(proportion = n / sum(n)) %>%                          
   ungroup() 
@@ -1370,15 +1374,7 @@ a_baumannii_prediction <- a_baumannii %>%
 # This script implements a multi-model XGBoost approach to forecast future
 # cluster proportions, including bootstrapped confidence intervals.
 
-# --- 0. Load Required Packages and Prepare Data ---
-# If you don't have xgboost, run: install.packages("xgboost")
-library(tidyverse)
 library(xgboost)
-
-# Let's assume your 'a_baumannii_prediction' object is loaded and cleaned.
-# For this example, we'll rename the cluster column for easier use.
-a_baumannii_prediction_clean <- a_baumannii_prediction %>%
-  rename(Cluster = `a_baumannii_model$predclass`)
 
 # We'll focus on a single region to build our first model.
 model_data <- a_baumannii_prediction_clean %>%
@@ -1535,7 +1531,7 @@ ggplot(plot_data_historical, aes(x = Year, y = Actual_Proportion)) +
 
 
 #Changing clusters to factors with descriptive names
-a_baumannii$`a_baumannii_model$predclass` <- factor(a_baumannii$`a_baumannii_model$predclass`, levels = c(1,2,3,4),
+a_baumannii$Cluster <- factor(a_baumannii$Cluster, levels = c(1,2,3,4),
                                                     labels = c("Pan-susceptible","Non-CRAB MDRAB","CRAB MDRAB","Low-Level Resistance"))
 
 
