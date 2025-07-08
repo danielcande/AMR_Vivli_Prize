@@ -3,6 +3,7 @@ library(tidyverse)
 library(poLCA)
 library(nnet)
 library(gt)
+library(gtsummary)
 
 set.seed(123)
 
@@ -76,6 +77,7 @@ e_spp <- e_spp %>%
 
 k_pneumoniae <- k_pneumoniae %>%
   dplyr::select(where(~ mean(is.na(.)) < 0.95))
+
 
 p_aeruginosa <- p_aeruginosa %>%
   dplyr::select(where(~ mean(is.na(.)) < 0.95))
@@ -715,6 +717,31 @@ s_aureus <- s_aureus %>%
   cbind(as.factor(s_aureus_model$predclass)) %>%
   rename(Cluster=`as.factor(s_aureus_model$predclass)`)
 
+
+#Changing clusters to factors with descriptive names
+a_baumannii$Cluster <- factor(a_baumannii$Cluster, levels = c(1,2,3,4),
+                              labels = c("Pan-susceptible","Non-CRAB MDRAB","CRAB MDRAB","Low-Level Resistance"))
+
+
+e_faecium$Cluster <- factor(e_faecium$Cluster, levels = c(1,2,3,4,5), 
+                            labels = c("VS-MDR (Vancomycin-susceptible)","VR-MR (Vancomycin-resistant",
+                                       "Amp-S, Van-S, E-R (Ampicillin-Susceptible, Erythromycin-Resistant Cluster",
+                                       "Pan-susceptible","High-Level Penicillin-Resistant VSE"))
+
+e_spp$Cluster <- factor(e_spp$Cluster, levels = c(1,2,3,4,5), 
+                        labels= c("XDR-CRE","ESBL, Carbapenem-S","MDR, Carbapenem-S, (AmpC-like)",
+                                  "Amp-R, ESBL-Negative","Pan-Susceptible"))
+
+k_pneumoniae$Cluster <- factor(k_pneumoniae$Cluster, levels=c(1,2,3,4,5),
+                               labels=c("CRE XDR","ESBL-like MDR","AmpC-like MDR","Susceptible(Intrinsic Amp-R)",
+                                        "non-CRE XDR"))  #Critical cluster is CRE XDR, high risk is non-CRE XDR, ref is Intrinsic Amp-R 
+
+p_aeruginosa$Cluster <- factor(p_aeruginosa$Cluster, levels=c(1,2,3,4,5),
+                               labels=c("Pan-S","Fluoroq-R","MDR","CRP","XDR-CRP"))
+
+s_aureus$Cluster <- factor(s_aureus$Cluster, levels=c(1,2,3,4),
+                           labels=c("MRSA(Gentamicin-R","MRSA(Fluoroq-R)","MSSA","MRSA(Gentamicin-S)"))
+
 #Adding genetic data
 a_baumannii <- a_baumannii %>%
   left_join(a_baumannii_genetics, by="Isolate.Id") %>%
@@ -724,39 +751,200 @@ a_baumannii <- a_baumannii %>%
 #Running regression with class as output
 
 #Set reference class
-a_baumannii$Cluster <- relevel(a_baumannii$Cluster, ref = 1)
+a_baumannii$Cluster <- relevel(a_baumannii$Cluster, ref = "Pan-susceptible")
+e_faecium$Cluster <- relevel(e_faecium$Cluster, ref = "Pan-susceptible")
+e_spp$Cluster <- relevel(e_spp$Cluster, ref = "Pan-Susceptible")
+p_aeruginosa$Cluster <- relevel(p_aeruginosa$Cluster, ref = "Pan-S")
+k_pneumoniae$Cluster <- relevel(k_pneumoniae$Cluster, ref = "Susceptible(Intrinsic Amp-R)")
+s_aureus$Cluster <- relevel(s_aureus$Cluster, ref = "MSSA")
 
-
-a_baumannii_multinom <- multinom(Cluster ~ Super_Region.x + Gender + Age.Group + 
+a_baumannii_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
                                    Speciality + Source + In...Out.Patient + Year, data = a_baumannii) #Removed genetic vars with <2 lvl
 
 e_faecium_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
                                  Speciality + Source + In...Out.Patient + Year, data = e_faecium)
 
 e_spp_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
-                             Speciality + Source + In...Out.Patient + Year, data = e_spp)
+                             Speciality + Source + Year, data = e_spp) #removed in/outpatient as they're ll "Non-Given"
 
-s_aureus_multinom <- multinom(s_aureus_model$predclass ~ Super_Region + Gender + Age.Group + 
+s_aureus_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
                              Speciality + Source + In...Out.Patient + Year, data = s_aureus)
 
-k_pneumoniae_multinom <- multinom(k_pneumoniae_model$predclass ~ Super_Region + Gender + Age.Group + 
+k_pneumoniae_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
                                 Speciality + Source + In...Out.Patient + Year, data = k_pneumoniae)
 
+p_aeruginosa_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
+                                    Speciality + Source + In...Out.Patient + Year, data = p_aeruginosa)
+
+# 
+# #Extracting odds ratios and p-values
+# 
+# calc_odds_ratios <- function(model) {
+#   coeffs <- model$coefficients
+#   std_errs <- model$standard.errors
+#   
+#   # Calculate z-scores
+#   z_scores <- coeffs / std_errs
+#   
+#   # Calculate two-tailed p-values
+#   p_values <- (1 - pnorm(abs(z_scores))) * 2
+#   
+#   
+#   # Calculate the RRRs by exponentiating the coefficients
+#   OR <- exp(coef(model))
+# return(OR)
+#   }
+# 
+# a_baumannii_OR <- calc_odds_ratios(a_baumannii_multinom)
+# e_faecium_OR <- calc_odds_ratios(e_faecium_multinom)
+# e_spp_OR <- calc_odds_ratios(e_spp_multinom)
+# p_aeruginosa_OR <- calc_odds_ratios(p_aeruginosa_multinom)
+# k_pneumoniae_OR <- calc_odds_ratios(k_pneumoniae_multinom)
+# s_aureus_OR <- calc_odds_ratios(s_aureus_multinom)
 
 
-library(gtsummary)
+get_multinom_results_fast <- function(model) {
+  
+  # --- Step 1: Extract coefficients and standard errors ---
+  # This is the core information from the model summary
+  summary_model <- summary(model)
+  coeffs <- summary_model$coefficients
+  std_errs <- summary_model$standard.errors
+  
+  # --- Step 2: Manually calculate p-values and confidence intervals ---
+  
+  # Z-scores
+  z_scores <- coeffs / std_errs
+  
+  # Two-tailed p-values
+  p_values <- (1 - pnorm(abs(z_scores))) * 2
+  
+  # Confidence intervals on the log-odds scale
+  conf_low_log <- coeffs - 1.96 * std_errs
+  conf_high_log <- coeffs + 1.96 * std_errs
+  
+  # --- Step 3: Convert matrices to tidy data frames and combine ---
+  
+  # Helper function to convert a matrix to a long-format tibble
+  reshape_matrix <- function(mat, value_name) {
+    as.data.frame(mat) %>%
+      tibble::rownames_to_column(var = "y.level") %>%
+      pivot_longer(
+        cols = -y.level,
+        names_to = "term",
+        values_to = value_name
+      )
+  }
+  
+  # Reshape all our calculated matrices
+  tidy_coeffs <- reshape_matrix(coeffs, "estimate_log")
+  tidy_pvals <- reshape_matrix(p_values, "p.value")
+  tidy_conf_low <- reshape_matrix(conf_low_log, "conf.low_log")
+  tidy_conf_high <- reshape_matrix(conf_high_log, "conf.high_log")
+  
+  # Join them all together into one final data frame
+  results_df <- tidy_coeffs %>%
+    left_join(tidy_pvals, by = c("y.level", "term")) %>%
+    left_join(tidy_conf_low, by = c("y.level", "term")) %>%
+    left_join(tidy_conf_high, by = c("y.level", "term"))
+  
+  # --- Step 4: Exponentiate and finalize ---
+  
+  final_results <- results_df %>%
+    # Exponentiate the log-odds and CIs to get Odds Ratios
+    mutate(
+      estimate = exp(estimate_log),
+      conf.low = exp(conf.low_log),
+      conf.high = exp(conf.high_log),
+      is_significant = p.value < 0.05
+    ) %>%
+    # Filter out the intercept term for cleaner plotting
+    filter(term != "(Intercept)") %>%
+    # Select and reorder columns to match the broom output
+    select(y.level, term, estimate, conf.low, conf.high, p.value, is_significant)
+  
+  return(final_results)
+}
+
+# Use the new, faster function on your model
+k_pneumoniae_results_fast <- get_multinom_results_fast(k_pneumoniae_multinom)
+
+ggplot(
+  data = k_pneumoniae_results_fast, 
+  aes(x = estimate, y = term, xmin = conf.low, xmax = conf.high, color = is_significant)
+) +
+  geom_point(size = 3) +
+  geom_errorbarh(height = 0.2, linewidth = 1) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
+  scale_x_log10() +
+  facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"), name = "Significant (p < 0.05)") +
+  labs(
+    title = "Forest Plot of Multinomial Regression for K. pneumoniae",
+    subtitle = "Odds Ratios and 95% Confidence Intervals (Generated with Fast Function)",
+    x = "Odds Ratio (log scale)",
+    y = "Predictor Variable"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+# View the first few rows of the tidy results
+# print(head(k_pneumoniae_results))
+
+# Create the forest plot
+ggplot(
+  data = k_pneumoniae_results, 
+  aes(x = estimate, y = term, xmin = conf.low, xmax = conf.high, color = is_significant)
+) +
+  
+  # Add the points for the odds ratio estimates
+  geom_point(size = 3) +
+  
+  # Add the horizontal error bars for the confidence intervals
+  geom_errorbarh(height = 0.2, linewidth = 1) +
+  
+  # Add a vertical line at 1.0, which is the line of "no effect"
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
+  
+  # Use a log scale for the x-axis, which is standard for odds ratios
+  scale_x_log10(
+    breaks = c(0.1, 0.25, 0.5, 1, 2, 4, 8),
+    labels = c("0.1", "0.25", "0.5", "1", "2", "4", "8")
+  ) +
+  
+  # Separate the plot into panels for each outcome cluster
+  # This is crucial for interpreting a multinomial model
+  facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
+  
+  # Manually set the colors to make significance clear (e.g., Red for significant)
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"),
+                     name = "Significant (p < 0.05)",
+                     labels = c("Yes", "No")) +
+  
+  # Add labels and a clean theme
+  labs(
+    title = "Forest Plot of Multinomial Regression for K. pneumoniae",
+    subtitle = "Odds Ratios and 95% Confidence Intervals",
+    x = "Odds Ratio (log scale)",
+    y = "Predictor Variable"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor.x = element_blank(), # Clean up grid lines
+    panel.border = element_rect(colour = "grey80", fill=NA), # Add border to facets
+    strip.text = element_text(face = "bold") # Make facet titles bold
+  )
 
 a_baumannii_1 <- a_baumannii %>%
-  filter(Cluster== 1)
+  filter(Cluster== "Pan-susceptible")
 
 a_baumannii_1 %>%
-  dplyr::select(Super_Region.x, Gender, Age.Group, Speciality,
-                Source, In...Out.Patient, Year, SHV, TEM, VEB, PER,
-                GES, KPC, OXA, NDM, IMP, VIM, SPM, GIM) %>%
+  dplyr::select(Super_Region, Gender, Age.Group, Speciality,
+                Source, In...Out.Patient, Year) %>%
   tbl_summary()
 
 a_baumannii_2 <- a_baumannii %>%
-  filter(Cluster==2)
+  filter(Cluster=="Non-CRAB MDRAB")
 
 a_baumannii_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -764,16 +952,15 @@ a_baumannii_2 %>%
   tbl_summary()
 
 a_baumannii_3 <- a_baumannii %>%
-  filter(Cluster==3)
+  filter(Cluster=="CRAB MDRAB")
 
 a_baumannii_3 %>%
-  dplyr::select(Super_Region.x, Gender, Age.Group, Speciality,
-                Source, In...Out.Patient, Year, SHV, TEM, VEB, PER,
-                GES, KPC, OXA, NDM, IMP, VIM, SPM, GIM) %>%
+  dplyr::select(Super_Region, Gender, Age.Group, Speciality,
+                Source, In...Out.Patient, Year) %>%
   tbl_summary()
 
 a_baumannii_4 <- a_baumannii %>%
-  filter(Cluster==4)
+  filter(Cluster=="Low-Level Resistance")
 
 a_baumannii_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -785,7 +972,7 @@ a_baumannii_4 %>%
 #E. faecium
 
 e_faecium_1 <- e_faecium %>%
-  filter(Cluster==1)
+  filter(Cluster=="VS-MDR (Vancomycin-susceptible)")
 
 e_faecium_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -793,7 +980,7 @@ e_faecium_1 %>%
   tbl_summary()
 
 e_faecium_2 <- e_faecium %>%
-  filter(Cluster==2)
+  filter(Cluster=="VR-MR (Vancomycin-resistant")
 
 e_faecium_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -801,7 +988,7 @@ e_faecium_2 %>%
   tbl_summary()
 
 e_faecium_3 <- e_faecium %>%
-  filter(Cluster==3)
+  filter(Cluster=="Amp-S, Van-S, E-R (Ampicillin-Susceptible, Erythromycin-Resistant Cluster")
 
 e_faecium_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -809,7 +996,7 @@ e_faecium_3 %>%
   tbl_summary()
 
 e_faecium_4 <- e_faecium %>%
-  filter(Cluster==4)
+  filter(Cluster=="Pan-susceptible")
 
 e_faecium_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -817,7 +1004,7 @@ e_faecium_4 %>%
   tbl_summary()
 
 e_faecium_5 <- e_faecium %>%
-  filter(Cluster==5)
+  filter(Cluster=="High-Level Penicillin-Resistant VSE")
 
 e_faecium_5 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -826,7 +1013,7 @@ e_faecium_5 %>%
 
 #E. spp
 e_spp_1 <- e_spp %>%
-  filter(Cluster==1)
+  filter(Cluster=="XDR-CRE")
 
 e_spp_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -834,7 +1021,7 @@ e_spp_1 %>%
   tbl_summary()
 
 e_spp_2 <- e_spp %>%
-  filter(Cluster == 2)
+  filter(Cluster == "ESBL, Carbapenem-S")
 
 e_spp_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -842,7 +1029,7 @@ e_spp_2 %>%
   tbl_summary()
 
 e_spp_3 <- e_spp %>%
-  filter(Cluster==3)
+  filter(Cluster=="MDR, Carbapenem-S, (AmpC-like)")
 
 e_spp_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -850,7 +1037,7 @@ e_spp_3 %>%
   tbl_summary()
 
 e_spp_4 <- e_spp %>%
-  filter(Cluster==4)
+  filter(Cluster=="Pan-Susceptible")
 
 e_spp_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -858,7 +1045,7 @@ e_spp_4 %>%
   tbl_summary()
 
 e_spp_5 <- e_spp %>%
-  filter(Cluster==5)
+  filter(Cluster=="Amp-R, ESBL-Negative")
 
 e_spp_5 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -868,7 +1055,7 @@ e_spp_5 %>%
 #S. aureus
 
 s_aureus_1 <- s_aureus %>%
-  filter(Cluster == 1)
+  filter(Cluster == "MRSA(Gentamicin-R")
 
 s_aureus_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -876,7 +1063,7 @@ s_aureus_1 %>%
   tbl_summary()
 
 s_aureus_2 <- s_aureus %>%
-  filter(Cluster == 2)
+  filter(Cluster == "MRSA(Fluoroq-R)")
 
 s_aureus_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -884,7 +1071,7 @@ s_aureus_2 %>%
   tbl_summary()
 
 s_aureus_3 <- s_aureus %>%
-  filter(Cluster == 3)
+  filter(Cluster == "MSSA")
 
 s_aureus_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -892,7 +1079,7 @@ s_aureus_3 %>%
   tbl_summary()
 
 s_aureus_4 <- s_aureus %>%
-  filter(Cluster == 4)
+  filter(Cluster == "MRSA(Gentamicin-S)")
 
 s_aureus_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -902,7 +1089,7 @@ s_aureus_4 %>%
 
 
 k_pneumoniae_1 <- k_pneumoniae %>%
-  filter(Cluster == 1)
+  filter(Cluster == "CRE XDR")
 
 k_pneumoniae_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -910,7 +1097,7 @@ k_pneumoniae_1 %>%
   tbl_summary()
 
 k_pneumoniae_2 <- k_pneumoniae %>%
-  filter(Cluster == 2)
+  filter(Cluster == "ESBL-like MDR")
 
 k_pneumoniae_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -919,7 +1106,7 @@ k_pneumoniae_2 %>%
 
 
 k_pneumoniae_3 <- k_pneumoniae %>%
-  filter(Cluster == 3)
+  filter(Cluster == "AmpC-like MDR")
 
 k_pneumoniae_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -928,7 +1115,7 @@ k_pneumoniae_3 %>%
 
 
 k_pneumoniae_4 <- k_pneumoniae %>%
-  filter(Cluster == 4)
+  filter(Cluster == "Susceptible(Intrinsic Amp-R)")
 
 k_pneumoniae_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -937,7 +1124,7 @@ k_pneumoniae_4 %>%
 
 
 k_pneumoniae_5 <- k_pneumoniae %>%
-  filter(Cluster == 5)
+  filter(Cluster == "non-CRE XDR")
 
 k_pneumoniae_5 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -946,7 +1133,7 @@ k_pneumoniae_5 %>%
 
 
 p_aeruginosa_1 <- p_aeruginosa %>%
-  filter(Cluster == 1)
+  filter(Cluster == "Pan-S")
 
 p_aeruginosa_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -954,7 +1141,7 @@ p_aeruginosa_1 %>%
   tbl_summary()
 
 p_aeruginosa_2 <- p_aeruginosa %>%
-  filter(Cluster == 2)
+  filter(Cluster == "Fluoroq-R")
 
 p_aeruginosa_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -963,7 +1150,7 @@ p_aeruginosa_2 %>%
 
 
 p_aeruginosa_3 <- p_aeruginosa %>%
-  filter(Cluster == 3)
+  filter(Cluster == "MDR")
 
 p_aeruginosa_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -972,7 +1159,7 @@ p_aeruginosa_3 %>%
 
 
 p_aeruginosa_4 <- p_aeruginosa %>%
-  filter(Cluster == 4)
+  filter(Cluster == "CRP")
 
 p_aeruginosa_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -981,7 +1168,7 @@ p_aeruginosa_4 %>%
 
 
 p_aeruginosa_5 <-  p_aeruginosa %>%
-  filter(Cluster == 5)
+  filter(Cluster == "XDR-CRP")
 
 p_aeruginosa_5 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1319,22 +1506,22 @@ ggplot(s_aureus_resistance_prob, aes(x = Antibiotic_Class, y = Probability, fill
   ) +
   theme_minimal() +
   theme(axis.text.y = element_text(face = "bold"))
-
-
-###Checking ESKAPE Pathogens and finding new ways of grouping data####
-eskape_pathogens <- data %>%
-  filter(Species == c("Enterococcus faecium","Staphylococcus aureus",
-                      "Klebsiella pneumoniae","Acinetobacter baumannii",
-                      "Pseudomonas aeruginosa","Enterobacter spp"))
-
-
-#Checking stats per country and bug
-samples_per_country <- eskape_pathogens %>%
-  group_by(Species, Country) %>%
-  summarise(sample_nr = n())
-
-samples_per_country_over_100 <- samples_per_country %>%
-  filter(sample_nr > 100)
+# 
+# 
+# ###Checking ESKAPE Pathogens and finding new ways of grouping data####
+# eskape_pathogens <- data %>%
+#   filter(Species == c("Enterococcus faecium","Staphylococcus aureus",
+#                       "Klebsiella pneumoniae","Acinetobacter baumannii",
+#                       "Pseudomonas aeruginosa","Enterobacter spp"))
+# 
+# 
+# #Checking stats per country and bug
+# samples_per_country <- eskape_pathogens %>%
+#   group_by(Species, Country) %>%
+#   summarise(sample_nr = n())
+# 
+# samples_per_country_over_100 <- samples_per_country %>%
+#   filter(sample_nr > 100)
 
 country_to_region_lookup <- tibble::tribble(
   ~Country, ~Super_Region,
@@ -1440,224 +1627,201 @@ country_to_region_lookup <- tibble::tribble(
   "Nigeria", "West and Central Africa",
   "Senegal", "West and Central Africa" 
 )
-
-eskape_pathogens <- eskape_pathogens %>%
-  left_join(country_to_region_lookup, by = "Country")
-
-samples_per_region <- eskape_pathogens %>%
-  group_by(Super_Region, Species) %>%
-  summarise(sample_nr = n())
-
-eskape_pathogens_country_NA <- eskape_pathogens %>%
-  filter(is.na(Super_Region))
-
-###Preparing data for LCA
-
-#Separating by region and bug
-list_of_dfs_by_bug_region <- eskape_pathogens %>%
-  group_by(Species, Super_Region) %>% 
-  group_nest()
-
-#saveRDS(Vivli + data validation, "amr_processed_data.rds")
-
-####TESTING OUT PREDICTIVE MODELLING OF CLUSTER MEMBERSHIP
-a_baumannii_prediction_clean <- a_baumannii %>%
-  count(Super_Region, Year, Cluster) %>% 
-  group_by(Super_Region, Year) %>%                             
-  mutate(proportion = n / sum(n)) %>%                          
-  ungroup() 
-
-# --- Step-by-Step Guide to Building a Cluster Prediction Model ---
-# This script implements a multi-model XGBoost approach to forecast future
-# cluster proportions, including bootstrapped confidence intervals.
-
-library(xgboost)
-
-# We'll focus on a single region to build our first model.
-model_data <- a_baumannii_prediction_clean %>%
-  filter(Super_Region == "Western Europe")
-
-# --- 1. Feature Engineering ---
-# Pivot the data so each cluster's proportion gets its own column.
-feature_data <- model_data %>%
-  dplyr::select(Year, Cluster, proportion) %>%
-  pivot_wider(names_from = Cluster,
-              values_from = proportion,
-              names_prefix = "Cluster_",
-              values_fill = 0) %>%
-  arrange(Year)
-
-# Create "lagged" features (predictors)
-feature_data_lagged <- feature_data %>%
-  mutate(across(starts_with("Cluster_"), ~lag(.x, 1), .names = "{.col}_lag1"))
-
-# --- 2. Multi-Model Training with Bootstrapping ---
-# We will train an ensemble of models for EACH cluster.
-
-predictor_variables <- colnames(feature_data_lagged)[grepl("_lag1$", colnames(feature_data_lagged))]
-target_variables <- colnames(feature_data)[grepl("^Cluster_", colnames(feature_data))]
-
-# Create a complete dataset for modeling (remove NAs from lagging)
-modeling_df <- feature_data_lagged %>% na.omit()
-
-# This list will hold the bootstrap model ensembles for each target cluster
-all_bootstrap_models <- list()
-
-# Loop through each target cluster to create its own set of models
-for (target_var in target_variables) {
-  cat(paste("\n--- Training models for:", target_var, "---\n"))
-  
-  # Train an initial model to get residuals
-  initial_model <- xgboost(
-    data = as.matrix(modeling_df[, predictor_variables]),
-    label = modeling_df[[target_var]],
-    nrounds = 100, objective = "reg:squarederror", verbose = 0
-  )
-  residuals <- modeling_df[[target_var]] - predict(initial_model, as.matrix(modeling_df[, predictor_variables]))
-  
-  # Bootstrap loop to create an ensemble for this specific cluster
-  n_bootstrap <- 100
-  bootstrap_models_for_target <- list()
-  for (i in 1:n_bootstrap) {
-    bootstrap_target <- predict(initial_model, as.matrix(modeling_df[, predictor_variables])) + sample(residuals, size = nrow(modeling_df), replace = TRUE)
-    
-    bootstrap_model <- xgboost(
-      data = as.matrix(modeling_df[, predictor_variables]),
-      label = bootstrap_target,
-      nrounds = 100, objective = "reg:squarederror", verbose = 0
-    )
-    bootstrap_models_for_target[[i]] <- bootstrap_model
-  }
-  all_bootstrap_models[[target_var]] <- bootstrap_models_for_target
-}
-
-
-# --- 3. Iterative Forecasting with a Multi-Model Approach ---
-n_forecast_years <- 5
-last_known_year <- max(feature_data$Year)
-last_known_features <- feature_data %>%
-  filter(Year == last_known_year) %>%
-  dplyr::select(all_of(target_variables)) %>%
-  as.numeric()
-
-# This array will store all predictions for all clusters from all bootstrap models
-# Dims: bootstrap_run, forecast_year, cluster_id
-future_predictions_array <- array(NA, dim = c(n_bootstrap, n_forecast_years, length(target_variables)))
-
-# Loop through each bootstrap simulation
-for (i in 1:n_bootstrap) {
-  # Start with the last known real data
-  current_features <- last_known_features
-  
-  # Iteratively predict future years
-  for (j in 1:n_forecast_years) {
-    # This vector will hold predictions for all clusters for a single year
-    yearly_predictions <- numeric(length(target_variables))
-    
-    # Prepare input matrix (it's the same for all cluster models in a given year)
-    input_matrix <- matrix(current_features, nrow = 1)
-    colnames(input_matrix) <- predictor_variables
-    
-    # Predict each cluster's proportion for the year
-    for (k in 1:length(target_variables)) {
-      target_var <- target_variables[k]
-      current_model <- all_bootstrap_models[[target_var]][[i]]
-      yearly_predictions[k] <- predict(current_model, input_matrix)
-    }
-    
-    # --- Normalize predictions to sum to 1 ---
-    # Clip at 0 to avoid negative proportions
-    yearly_predictions[yearly_predictions < 0] <- 0
-    normalized_predictions <- yearly_predictions / sum(yearly_predictions)
-    
-    # Store the normalized predictions in our results array
-    future_predictions_array[i, j, ] <- normalized_predictions
-    
-    # The new features for the next iteration are the predictions we just made
-    current_features <- normalized_predictions
-  }
-}
-
-# --- 4. Summarize Forecasts and Plot a Specific Cluster ---
-# Let's choose which cluster we want to visualize
-cluster_to_plot <- "Cluster_3"
-cluster_index <- which(target_variables == cluster_to_plot)
-
-# Extract the predictions for our chosen cluster
-predictions_for_one_cluster <- future_predictions_array[, , cluster_index]
-
-# Calculate the mean, lower, and upper bounds
-forecast_summary <- data.frame(
-  Year = (last_known_year + 1):(last_known_year + n_forecast_years),
-  Point_Forecast = apply(predictions_for_one_cluster, 2, mean),
-  Lower_CI = apply(predictions_for_one_cluster, 2, quantile, probs = 0.025),
-  Upper_CI = apply(predictions_for_one_cluster, 2, quantile, probs = 0.975)
-)
-
-print("Forecast Summary with Confidence Intervals:")
-print(forecast_summary)
-
-# --- Prepare data for a seamless plot ---
-plot_data_historical <- feature_data %>%
-  dplyr::select(Year, Actual_Proportion = !!sym(cluster_to_plot))
-
-last_actual_point <- plot_data_historical %>%
-  filter(Year == last_known_year)
-
-forecast_line_data <- bind_rows(
-  data.frame(Year = last_actual_point$Year, Point_Forecast = last_actual_point$Actual_Proportion),
-  forecast_summary %>% 
-    dplyr::select(Year, Point_Forecast)
-)
-
-# Plot the results
-ggplot(plot_data_historical, aes(x = Year, y = Actual_Proportion)) +
-  geom_line(aes(color = "Actual"), linewidth = 1.2) +
-  geom_ribbon(data = forecast_summary, aes(x = Year, ymin = Lower_CI, ymax = Upper_CI),
-              fill = "skyblue", alpha = 0.5, inherit.aes = FALSE) +
-  geom_line(data = forecast_line_data, aes(x = Year, y = Point_Forecast, color = "Forecast"),
-            linewidth = 1.2, linetype = "dashed") +
-  labs(
-    title = "XGBoost Forecast with 95% Confidence Interval",
-    subtitle = paste("Forecasting", cluster_to_plot, "Proportion in Western Europe"),
-    y = "Proportion of Isolates",
-    color = "Legend"
-  ) +
-  scale_color_manual(values = c("Actual" = "black", "Forecast" = "red")) +
-  theme_minimal(base_size = 14)
-
-
-#Changing clusters to factors with descriptive names
-a_baumannii$Cluster <- factor(a_baumannii$Cluster, levels = c(1,2,3,4),
-                                                    labels = c("Pan-susceptible","Non-CRAB MDRAB","CRAB MDRAB","Low-Level Resistance"))
-
-
-e_faecium$Cluster <- factor(e_faecium$Cluster, levels = c(1,2,3,4,5), 
-                                                labels = c("VS-MDR (Vancomycin-susceptible)","VR-MR (Vancomycin-resistant",
-                                                           "Amp-S, Van-S, E-R (Ampicillin-Susceptible, Erythromycin-Resistant Cluster",
-                                                           "Pan-susceptible","High-Level Penicillin-Resistant VSE"))
-
-e_spp$Cluster <- factor(e_spp$Cluster, levels = c(1,2,3,4,5), 
-                                        labels= c("XDR-CRE","ESBL, Carbapenem-S","MDR, Carbapenem-S, (AmpC-like)",
-                                                  "Amp-R, ESBL-Negative","Pan-Susceptible"))
-
-k_pneumoniae$Cluster <- factor(k_pneumoniae$Cluster, levels=c(1,2,3,4,5),
-                               labels=c("CRE XDR","ESBL-like MDR","AmpC-like MDR","Susceptible(Intrinsic Amp-R)",
-                                        "non-CRE XDR"))  #Critical cluster is CRE XDR, high risk is non-CRE XDR, ref is Intrinsic Amp-R 
-
-p_aeruginosa$Cluster <- factor(p_aeruginosa$Cluster, levels=c(1,2,3,4,5),
-                               labels=c("Pan-S","Fluoroq-R","MDR","CRP","XDR-CRP"))
-
-s_aureus$Cluster <- factor(s_aureus$Cluster, levels=c(1,2,3,4),
-                           labels=c("MRSA(Gentamicin-R","MRSA(Fluoroq-R)","MSSA","MRSA(Gentamicin-S)"))
-
-
-e_faecium$`e_faecium_model$predclass` <- as.factor(e_faecium$`e_faecium_model$predclass`)
-
-e_spp$`e_spp_model$predclass` <- as.factor(e_spp$`e_spp_model$predclass`)
-
-a_baumannii$Country <- factor(a_baumannii$Country, levels=unique(a_baumannii$Country), labels = unique(a_baumannii$Country))
-
+# 
+# eskape_pathogens <- eskape_pathogens %>%
+#   left_join(country_to_region_lookup, by = "Country")
+# 
+# samples_per_region <- eskape_pathogens %>%
+#   group_by(Super_Region, Species) %>%
+#   summarise(sample_nr = n())
+# 
+# eskape_pathogens_country_NA <- eskape_pathogens %>%
+#   filter(is.na(Super_Region))
+# 
+# ###Preparing data for LCA
+# 
+# #Separating by region and bug
+# list_of_dfs_by_bug_region <- eskape_pathogens %>%
+#   group_by(Species, Super_Region) %>% 
+#   group_nest()
+# 
+# #saveRDS(Vivli + data validation, "amr_processed_data.rds")
+# 
+# ####TESTING OUT PREDICTIVE MODELLING OF CLUSTER MEMBERSHIP
+# a_baumannii_prediction_clean <- a_baumannii %>%
+#   count(Super_Region, Year, Cluster) %>% 
+#   group_by(Super_Region, Year) %>%                             
+#   mutate(proportion = n / sum(n)) %>%                          
+#   ungroup() 
+# 
+# # --- Step-by-Step Guide to Building a Cluster Prediction Model ---
+# # This script implements a multi-model XGBoost approach to forecast future
+# # cluster proportions, including bootstrapped confidence intervals.
+# 
+# library(xgboost)
+# 
+# # We'll focus on a single region to build our first model.
+# model_data <- a_baumannii_prediction_clean %>%
+#   filter(Super_Region == "Western Europe")
+# 
+# # --- 1. Feature Engineering ---
+# # Pivot the data so each cluster's proportion gets its own column.
+# feature_data <- model_data %>%
+#   dplyr::select(Year, Cluster, proportion) %>%
+#   pivot_wider(names_from = Cluster,
+#               values_from = proportion,
+#               names_prefix = "Cluster_",
+#               values_fill = 0) %>%
+#   arrange(Year)
+# 
+# # Create "lagged" features (predictors)
+# feature_data_lagged <- feature_data %>%
+#   mutate(across(starts_with("Cluster_"), ~lag(.x, 1), .names = "{.col}_lag1"))
+# 
+# # --- 2. Multi-Model Training with Bootstrapping ---
+# # We will train an ensemble of models for EACH cluster.
+# 
+# predictor_variables <- colnames(feature_data_lagged)[grepl("_lag1$", colnames(feature_data_lagged))]
+# target_variables <- colnames(feature_data)[grepl("^Cluster_", colnames(feature_data))]
+# 
+# # Create a complete dataset for modeling (remove NAs from lagging)
+# modeling_df <- feature_data_lagged %>% na.omit()
+# 
+# # This list will hold the bootstrap model ensembles for each target cluster
+# all_bootstrap_models <- list()
+# 
+# # Loop through each target cluster to create its own set of models
+# for (target_var in target_variables) {
+#   cat(paste("\n--- Training models for:", target_var, "---\n"))
+#   
+#   # Train an initial model to get residuals
+#   initial_model <- xgboost(
+#     data = as.matrix(modeling_df[, predictor_variables]),
+#     label = modeling_df[[target_var]],
+#     nrounds = 100, objective = "reg:squarederror", verbose = 0
+#   )
+#   residuals <- modeling_df[[target_var]] - predict(initial_model, as.matrix(modeling_df[, predictor_variables]))
+#   
+#   # Bootstrap loop to create an ensemble for this specific cluster
+#   n_bootstrap <- 100
+#   bootstrap_models_for_target <- list()
+#   for (i in 1:n_bootstrap) {
+#     bootstrap_target <- predict(initial_model, as.matrix(modeling_df[, predictor_variables])) + sample(residuals, size = nrow(modeling_df), replace = TRUE)
+#     
+#     bootstrap_model <- xgboost(
+#       data = as.matrix(modeling_df[, predictor_variables]),
+#       label = bootstrap_target,
+#       nrounds = 100, objective = "reg:squarederror", verbose = 0
+#     )
+#     bootstrap_models_for_target[[i]] <- bootstrap_model
+#   }
+#   all_bootstrap_models[[target_var]] <- bootstrap_models_for_target
+# }
+# 
+# 
+# # --- 3. Iterative Forecasting with a Multi-Model Approach ---
+# n_forecast_years <- 5
+# last_known_year <- max(feature_data$Year)
+# last_known_features <- feature_data %>%
+#   filter(Year == last_known_year) %>%
+#   dplyr::select(all_of(target_variables)) %>%
+#   as.numeric()
+# 
+# # This array will store all predictions for all clusters from all bootstrap models
+# # Dims: bootstrap_run, forecast_year, cluster_id
+# future_predictions_array <- array(NA, dim = c(n_bootstrap, n_forecast_years, length(target_variables)))
+# 
+# # Loop through each bootstrap simulation
+# for (i in 1:n_bootstrap) {
+#   # Start with the last known real data
+#   current_features <- last_known_features
+#   
+#   # Iteratively predict future years
+#   for (j in 1:n_forecast_years) {
+#     # This vector will hold predictions for all clusters for a single year
+#     yearly_predictions <- numeric(length(target_variables))
+#     
+#     # Prepare input matrix (it's the same for all cluster models in a given year)
+#     input_matrix <- matrix(current_features, nrow = 1)
+#     colnames(input_matrix) <- predictor_variables
+#     
+#     # Predict each cluster's proportion for the year
+#     for (k in 1:length(target_variables)) {
+#       target_var <- target_variables[k]
+#       current_model <- all_bootstrap_models[[target_var]][[i]]
+#       yearly_predictions[k] <- predict(current_model, input_matrix)
+#     }
+#     
+#     # --- Normalize predictions to sum to 1 ---
+#     # Clip at 0 to avoid negative proportions
+#     yearly_predictions[yearly_predictions < 0] <- 0
+#     normalized_predictions <- yearly_predictions / sum(yearly_predictions)
+#     
+#     # Store the normalized predictions in our results array
+#     future_predictions_array[i, j, ] <- normalized_predictions
+#     
+#     # The new features for the next iteration are the predictions we just made
+#     current_features <- normalized_predictions
+#   }
+# }
+# 
+# # --- 4. Summarize Forecasts and Plot a Specific Cluster ---
+# # Let's choose which cluster we want to visualize
+# cluster_to_plot <- "Cluster_3"
+# cluster_index <- which(target_variables == cluster_to_plot)
+# 
+# # Extract the predictions for our chosen cluster
+# predictions_for_one_cluster <- future_predictions_array[, , cluster_index]
+# 
+# # Calculate the mean, lower, and upper bounds
+# forecast_summary <- data.frame(
+#   Year = (last_known_year + 1):(last_known_year + n_forecast_years),
+#   Point_Forecast = apply(predictions_for_one_cluster, 2, mean),
+#   Lower_CI = apply(predictions_for_one_cluster, 2, quantile, probs = 0.025),
+#   Upper_CI = apply(predictions_for_one_cluster, 2, quantile, probs = 0.975)
+# )
+# 
+# print("Forecast Summary with Confidence Intervals:")
+# print(forecast_summary)
+# 
+# # --- Prepare data for a seamless plot ---
+# plot_data_historical <- feature_data %>%
+#   dplyr::select(Year, Actual_Proportion = !!sym(cluster_to_plot))
+# 
+# last_actual_point <- plot_data_historical %>%
+#   filter(Year == last_known_year)
+# 
+# forecast_line_data <- bind_rows(
+#   data.frame(Year = last_actual_point$Year, Point_Forecast = last_actual_point$Actual_Proportion),
+#   forecast_summary %>% 
+#     dplyr::select(Year, Point_Forecast)
+# )
+# 
+# # Plot the results
+# ggplot(plot_data_historical, aes(x = Year, y = Actual_Proportion)) +
+#   geom_line(aes(color = "Actual"), linewidth = 1.2) +
+#   geom_ribbon(data = forecast_summary, aes(x = Year, ymin = Lower_CI, ymax = Upper_CI),
+#               fill = "skyblue", alpha = 0.5, inherit.aes = FALSE) +
+#   geom_line(data = forecast_line_data, aes(x = Year, y = Point_Forecast, color = "Forecast"),
+#             linewidth = 1.2, linetype = "dashed") +
+#   labs(
+#     title = "XGBoost Forecast with 95% Confidence Interval",
+#     subtitle = paste("Forecasting", cluster_to_plot, "Proportion in Western Europe"),
+#     y = "Proportion of Isolates",
+#     color = "Legend"
+#   ) +
+#   scale_color_manual(values = c("Actual" = "black", "Forecast" = "red")) +
+#   theme_minimal(base_size = 14)
+# 
+# 
+# 
+# 
+# e_faecium$`e_faecium_model$predclass` <- as.factor(e_faecium$`e_faecium_model$predclass`)
+# 
+# e_spp$`e_spp_model$predclass` <- as.factor(e_spp$`e_spp_model$predclass`)
+# 
+# a_baumannii$Country <- factor(a_baumannii$Country, levels=unique(a_baumannii$Country), labels = unique(a_baumannii$Country))
+# 
 
 #Making HEATMAPS for resistance to antibiotic classes
 
@@ -1715,3 +1879,34 @@ e_spp_heatmap <- generate_resistance_heatmap(e_spp_resistance_prob)
 k_pneumoniae_heatmap <- generate_resistance_heatmap(k_pneumoniae_resistance_prob)
 p_aeruginosa_heatmap <- generate_resistance_heatmap(p_aeruginosa_resistance_prob)
 s_aureus_heatmap <- generate_resistance_heatmap(s_aureus_resistance_prob)
+
+# 
+# #Create dendograms to see cluster distance
+# library(ggdendro)
+# library(patchwork)
+# 
+# # Step 1: Perform Hierarchical Clustering to get the order
+# # First, we need the data in a 'wide' format for clustering
+# cluster_profiles_wide <- a_baumannii_resistance_prob %>%
+#   pivot_wider(names_from = Antibiotic, values_from = Probability) %>%
+#   # Use Class as row names for the matrix
+#   tibble::column_to_rownames("Class")
+# 
+# # Now, perform the clustering
+# dist_matrix <- dist(cluster_profiles_wide, method = "euclidean")
+# hc <- hclust(dist_matrix, method = "ward.D2")
+# 
+# # This is the crucial part: get the order of clusters from the dendrogram
+# cluster_order <- hc$labels[hc$order]
+# 
+# 
+# # Step 2: Reorder your original (long) dataframe to match the dendrogram
+# k_pneumoniae_prob_reordered <- k_pneumoniae_resistance_prob %>%
+#   mutate(Class = factor(Class, levels = cluster_order))
+# 
+# 
+# # Step 3: Create the two separate plots
+# 
+# # Plot 1: The Dendrogram (rotated)
+# dendro_plot <- ggdendrogram(hc, rotate = TRUE) + 
+#   theme(axis.text.y = element_blank()) # Hides the now-vertical labels
