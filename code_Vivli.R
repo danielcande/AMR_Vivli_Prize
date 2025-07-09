@@ -759,22 +759,22 @@ k_pneumoniae$Cluster <- relevel(k_pneumoniae$Cluster, ref = "Susceptible(Intrins
 s_aureus$Cluster <- relevel(s_aureus$Cluster, ref = "MSSA")
 
 a_baumannii_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
-                                   Speciality + Source + In...Out.Patient + Year, data = a_baumannii) #Removed genetic vars with <2 lvl
+                                   Speciality + In...Out.Patient + Year, data = a_baumannii) #Removed genetic vars with <2 lvl
 
 e_faecium_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
-                                 Speciality + Source + In...Out.Patient + Year, data = e_faecium)
+                                 Speciality + In...Out.Patient + Year, data = e_faecium)
 
 e_spp_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
-                             Speciality + Source + Year, data = e_spp) #removed in/outpatient as they're ll "Non-Given"
+                             Speciality + Year, data = e_spp) #removed in/outpatient as they're ll "Non-Given"
 
 s_aureus_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
-                             Speciality + Source + In...Out.Patient + Year, data = s_aureus)
+                             Speciality + In...Out.Patient + Year, data = s_aureus)
 
 k_pneumoniae_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
-                                Speciality + Source + In...Out.Patient + Year, data = k_pneumoniae)
+                                Speciality + In...Out.Patient + Year, data = k_pneumoniae)
 
 p_aeruginosa_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
-                                    Speciality + Source + In...Out.Patient + Year, data = p_aeruginosa)
+                                    Speciality + In...Out.Patient + Year, data = p_aeruginosa)
 
 # 
 # #Extracting odds ratios and p-values
@@ -867,28 +867,92 @@ get_multinom_results_fast <- function(model) {
 }
 
 # Use the new, faster function on your model
-k_pneumoniae_results_fast <- get_multinom_results_fast(k_pneumoniae_multinom)
+a_baumannii_results <- get_multinom_results_fast(a_baumannii_multinom)
+e_faecium_results <- get_multinom_results_fast(e_faecium_multinom)
+e_spp_results <- get_multinom_results_fast(e_spp_multinom)
+p_aeruginosa_results <- get_multinom_results_fast(p_aeruginosa_multinom)
+k_pneumoniae_results <- get_multinom_results_fast(k_pneumoniae_multinom)
+s_aureus_results <- get_multinom_results_fast(s_aureus_multinom)
 
-ggplot(
-  data = k_pneumoniae_results_fast, 
-  aes(x = estimate, y = term, xmin = conf.low, xmax = conf.high, color = is_significant)
-) +
-  geom_point(size = 3) +
-  geom_errorbarh(height = 0.2, linewidth = 1) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
-  scale_x_log10() +
-  facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
-  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"), name = "Significant (p < 0.05)") +
-  labs(
-    title = "Forest Plot of Multinomial Regression for K. pneumoniae",
-    subtitle = "Odds Ratios and 95% Confidence Intervals (Generated with Fast Function)",
-    x = "Odds Ratio (log scale)",
-    y = "Predictor Variable"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "bottom")
-# View the first few rows of the tidy results
-# print(head(k_pneumoniae_results))
+#Grouping for ease of understanding plots
+sterile_sites_sources <- c("SourceBlood", "SourceCSF", "SourcePeritoneal Fluid", 
+                           "SourcePleural Fluid", "SourceSynovial Fluid", 
+                           "SourceBone Marrow", "SourceThoracentesis Fluid")
+
+respiratory_sources <- c("SourceLungs", "SourceBronchoalveolar lavage", 
+                         "SourceEndotracheal aspirate", "SourceSputum", "SourceTrachea", 
+                         "SourceBronchus", "SourceNose", "SourceThroat", 
+                         "SourceRespiratory: Sinuses", "SourceEar", "SourceEye", 
+                         "SourceMouth", "SourceHead", "SourceHEENT: Other", 
+                         "SourceRespiratory: Other")
+
+skin_soft_tissue_sources <- c("SourceWound", "SourceAbscess", "SourceSkin", "SourceUlcer", 
+                              "SourceBurn", "SourceCellulitis", "SourceDecubitus", 
+                              "SourceFuruncle", "SourceCarbuncle", "SourceImpetiginous lesions", 
+                              "SourceIntegumentary (Skin Nail Hair)", "SourceNails", 
+                              "SourceHair", "SourceSkin: Other")
+
+genitourinary_sources <- c("SourceUrine", "SourceBladder", "SourceUrethra", "SourceUreter", 
+                           "SourceKidney", "SourceProstate", "SourcePenis", 
+                           "SourceVas Deferens", "SourceVagina", "SourceUterus", 
+                           "SourceOvary", "SourceFallopian Tubes", "SourceGenitourinary: Other")
+
+gi_abdominal_sources <- c("SourceFeces/Stool", "SourceRectum", "SourceColon", 
+                          "SourceAppendix", "SourceDiverticulum", "SourceStomach", 
+                          "SourceGastric Abscess", "SourceLiver", "SourceGall Bladder", 
+                          "SourceBile", "SourcePancreas", "SourceIntestinal: Other")
+
+musculoskeletal_sources <- c("SourceBone", "SourceMuscle", "SourceSkeletal: Other")
+
+cns_sources <- c("SourceBrain", "SourceSpinal Cord", "SourcePeripheral Nerves", "SourceCNS: Other")
+
+cardio_lymph_sources <- c("SourceHeart", "SourceBlood Vessels", "SourceLymph Nodes", 
+                          "SourceLymphatic Fluid", "SourceThymus", "SourceCirculatory: Other")
+
+device_sources <- c("SourceCatheters", "SourceDrains", "SourceInstruments: Other")
+
+unspecified_fluid_sources <- c("SourceAspirate", "SourceExudate", "SourceTissue Fluid", 
+                               "SourceBodily Fluids", "SourceNone Given")
+
+
+
+a_baumannii_results_grouped <- a_baumannii_results %>%
+  mutate(
+    group = case_when(
+      # Specimen Sources (using the predefined vectors)
+      term %in% sterile_sites_sources      ~ "Source: Sterile Sites & Deep Fluids",
+      term %in% respiratory_sources        ~ "Source: Respiratory Tract",
+      term %in% skin_soft_tissue_sources ~ "Source: Skin, Soft Tissue & Wound",
+      term %in% genitourinary_sources      ~ "Source: Genitourinary Tract",
+      term %in% gi_abdominal_sources     ~ "Source: GI / Abdominal Tract",
+      term %in% musculoskeletal_sources    ~ "Source: Musculoskeletal",
+      term %in% cns_sources                ~ "Source: Central Nervous System",
+      term %in% cardio_lymph_sources       ~ "Source: Cardiovascular & Lymphatic",
+      term %in% device_sources             ~ "Source: Devices / Instruments",
+      term %in% unspecified_fluid_sources  ~ "Source: Unspecified Fluids & Tissues",
+    )) %>%
+    mutate(group = ifelse(is.na(group), term, group))
+
+# ggplot(
+#   data = a_baumannii_results_grouped, 
+#   aes(x = estimate, y = group, xmin = conf.low, xmax = conf.high, color = is_significant)
+# ) +
+#   geom_point(size = 3) +
+#   geom_errorbarh(height = 0.2, linewidth = 1) +
+#   geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
+#   scale_x_log10() +
+#   facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
+#   scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"), name = "Significant (p < 0.05)") +
+#   labs(
+#     title = "Forest Plot of Multinomial Regression for K. pneumoniae",
+#     subtitle = "Odds Ratios and 95% Confidence Intervals (Generated with Fast Function)",
+#     x = "Odds Ratio (log scale)",
+#     y = "Predictor Variable"
+#   ) +
+#   theme_minimal() +
+#   theme(legend.position = "bottom")
+# # View the first few rows of the tidy results
+# # print(head(k_pneumoniae_results))
 
 # Create the forest plot
 ggplot(
@@ -919,6 +983,182 @@ ggplot(
   scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"),
                      name = "Significant (p < 0.05)",
                      labels = c("Yes", "No")) +
+  
+  # Add labels and a clean theme
+  labs(
+    title = "Forest Plot of Multinomial Regression for K. pneumoniae",
+    subtitle = "Odds Ratios and 95% Confidence Intervals",
+    x = "Odds Ratio (log scale)",
+    y = "Predictor Variable"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor.x = element_blank(), # Clean up grid lines
+    panel.border = element_rect(colour = "grey80", fill=NA), # Add border to facets
+    strip.text = element_text(face = "bold") # Make facet titles bold
+  )
+
+ggplot(
+  data = a_baumannii_results, 
+  aes(x = estimate, y = term, xmin = conf.low, xmax = conf.high, color = is_significant)
+) +
+  
+  # Add the points for the odds ratio estimates
+  geom_point(size = 3) +
+  
+  # Add the horizontal error bars for the confidence intervals
+  geom_errorbarh(height = 0.2, linewidth = 1) +
+  
+  # Add a vertical line at 1.0, which is the line of "no effect"
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
+  
+  # Use a log scale for the x-axis, which is standard for odds ratios
+  scale_x_log10(
+    breaks = c(0.1, 0.25, 0.5, 1, 2, 4, 8),
+    labels = c("0.1", "0.25", "0.5", "1", "2", "4", "8")
+  ) +
+  
+  # Separate the plot into panels for each outcome cluster
+  # This is crucial for interpreting a multinomial model
+  facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
+  
+  # Manually set the colors to make significance clear (e.g., Red for significant)
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"),
+                     name = "Significant (p < 0.05)",
+                     labels = c("No", "Yes")) +
+  
+  # Add labels and a clean theme
+  labs(
+    title = "Forest Plot of Multinomial Regression for K. pneumoniae",
+    subtitle = "Odds Ratios and 95% Confidence Intervals",
+    x = "Odds Ratio (log scale)",
+    y = "Predictor Variable"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor.x = element_blank(), # Clean up grid lines
+    panel.border = element_rect(colour = "grey80", fill=NA), # Add border to facets
+    strip.text = element_text(face = "bold") # Make facet titles bold
+  )
+
+ggplot(
+  data = e_faecium_results, 
+  aes(x = estimate, y = term, xmin = conf.low, xmax = conf.high, color = is_significant)
+) +
+  
+  # Add the points for the odds ratio estimates
+  geom_point(size = 3) +
+  
+  # Add the horizontal error bars for the confidence intervals
+  geom_errorbarh(height = 0.2, linewidth = 1) +
+  
+  # Add a vertical line at 1.0, which is the line of "no effect"
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
+  
+  # Use a log scale for the x-axis, which is standard for odds ratios
+  scale_x_log10(
+    breaks = c(0.1, 0.25, 0.5, 1, 2, 4, 8),
+    labels = c("0.1", "0.25", "0.5", "1", "2", "4", "8")
+  ) +
+  
+  # Separate the plot into panels for each outcome cluster
+  # This is crucial for interpreting a multinomial model
+  facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
+  
+  # Manually set the colors to make significance clear (e.g., Red for significant)
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"),
+                     name = "Significant (p < 0.05)",
+                     labels = c("Yes", "No")) +
+  
+  # Add labels and a clean theme
+  labs(
+    title = "Forest Plot of Multinomial Regression for K. pneumoniae",
+    subtitle = "Odds Ratios and 95% Confidence Intervals",
+    x = "Odds Ratio (log scale)",
+    y = "Predictor Variable"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor.x = element_blank(), # Clean up grid lines
+    panel.border = element_rect(colour = "grey80", fill=NA), # Add border to facets
+    strip.text = element_text(face = "bold") # Make facet titles bold
+  )
+
+ggplot(
+  data = e_spp_results, 
+  aes(x = estimate, y = term, xmin = conf.low, xmax = conf.high, color = is_significant)
+) +
+  
+  # Add the points for the odds ratio estimates
+  geom_point(size = 3) +
+  
+  # Add the horizontal error bars for the confidence intervals
+  geom_errorbarh(height = 0.2, linewidth = 1) +
+  
+  # Add a vertical line at 1.0, which is the line of "no effect"
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
+  
+  # Use a log scale for the x-axis, which is standard for odds ratios
+  scale_x_log10(
+    breaks = c(0.1, 0.25, 0.5, 1, 2, 4, 8),
+    labels = c("0.1", "0.25", "0.5", "1", "2", "4", "8")
+  ) +
+  
+  # Separate the plot into panels for each outcome cluster
+  # This is crucial for interpreting a multinomial model
+  facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
+  
+  # Manually set the colors to make significance clear (e.g., Red for significant)
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"),
+                     name = "Significant (p < 0.05)",
+                     labels = c("Yes", "No")) +
+  
+  # Add labels and a clean theme
+  labs(
+    title = "Forest Plot of Multinomial Regression for K. pneumoniae",
+    subtitle = "Odds Ratios and 95% Confidence Intervals",
+    x = "Odds Ratio (log scale)",
+    y = "Predictor Variable"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor.x = element_blank(), # Clean up grid lines
+    panel.border = element_rect(colour = "grey80", fill=NA), # Add border to facets
+    strip.text = element_text(face = "bold") # Make facet titles bold
+  )
+
+ggplot(
+  data = p_aeruginosa_results, 
+  aes(x = estimate, y = term, xmin = conf.low, xmax = conf.high, color = is_significant)
+) +
+  
+  # Add the points for the odds ratio estimates
+  geom_point(size = 3) +
+  
+  # Add the horizontal error bars for the confidence intervals
+  geom_errorbarh(height = 0.2, linewidth = 1) +
+  
+  # Add a vertical line at 1.0, which is the line of "no effect"
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
+  
+  # Use a log scale for the x-axis, which is standard for odds ratios
+  scale_x_log10(
+    breaks = c(0.1, 0.25, 0.5, 1, 2, 4, 8),
+    labels = c("0.1", "0.25", "0.5", "1", "2", "4", "8")
+  ) +
+  
+  # Separate the plot into panels for each outcome cluster
+  # This is crucial for interpreting a multinomial model
+  facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
+  
+  # Manually set the colors to make significance clear (e.g., Red for significant)
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"),
+                     name = "Significant (p < 0.05)",
+                     labels = c("No", "Yes")) +
   
   # Add labels and a clean theme
   labs(

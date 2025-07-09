@@ -7,23 +7,18 @@ library(rnaturalearth)
 library(countrycode)
 library(xgboost)
 library(gt) # Required for displaying the heatmap tables
+library(nnet) # Required for the multinomial model in the predictor
 
 # --- 2. Check for and Combine Pre-Loaded Data ---
 message("Starting app: Checking for required data objects...")
 required_cluster_cols <- c(
   "a_baumannii" = "Cluster",
-  "e_faecium"   = "Cluster",
-  "e_spp"       = "Cluster",
-  "s_aureus"    = "Cluster",
+  "e_faecium"  = "Cluster",
+  "e_spp"      = "Cluster",
+  "s_aureus"   = "Cluster",
   "k_pneumoniae" = "Cluster",
   "p_aeruginosa" = "Cluster"
 )
-
-#Removing genetic data from k_pneumoniae - it fell through the cracks
-
-##COMMENTING OUT - UNCOMMENT WHEN ERROR POPS UP AGAIN
-#k_pneumoniae <- k_pneumoniae %>%
-#  dplyr::select(-c(41:63))
 
 all_data_list <- lapply(names(required_cluster_cols), function(df_name) {
   if (!exists(df_name, envir = .GlobalEnv)) {
@@ -54,6 +49,10 @@ if (!"Super_Region" %in% colnames(all_data_processed)) all_data_processed$Super_
 if (!"Country" %in% colnames(all_data_processed)) all_data_processed$Country <- "Unknown Country"
 if (!"Isolate.ID" %in% colnames(all_data_processed)) all_data_processed$Isolate.ID <- 1:nrow(all_data_processed)
 if (!"Year" %in% colnames(all_data_processed)) all_data_processed$Year <- 2022
+if (!"Age.Group" %in% colnames(all_data_processed)) all_data_processed$Age.Group <- "Unknown"
+if (!"Gender" %in% colnames(all_data_processed)) all_data_processed$Gender <- "Unknown"
+
+
 world_map <- ne_countries(scale = "medium", returnclass = "sf") %>% dplyr::select(iso_a3, geometry)
 
 all_data_processed <- all_data_processed %>% mutate(iso_a3 = countrycode(Country, "country.name", "iso3c"))
@@ -85,6 +84,9 @@ all_data_final <- all_data_processed %>%
   filter(!is.na(Resistance), !is.na(Cluster))
 
 all_data_final$Antibiotic_Class[is.na(all_data_final$Antibiotic_Class)] <- "Unknown Class"
+
+age_choices <- c("All", unique(levels(all_data_final$Age.Group)))
+gender_choices <- c("All", unique(levels(all_data_final$Gender)))
 
 
 message("Data ready. Launching UI.")
@@ -160,8 +162,18 @@ ui <- fluidPage(
              tabPanel("Global Overview",
                       fluidRow(column(12, wellPanel(h4("Shared Map Filters"), uiOutput("year_slider_global")))),
                       fluidRow(
-                        column(6, wellPanel(h4("Global Cluster Map Filters"), selectInput("species_global_cluster", "Select Species:", choices = unique(all_data_final$Species)))),
-                        column(6, wellPanel(h4("Global Resistance Map Filters"), selectInput("species_global_res", "Select Species:", choices = unique(all_data_final$Species)), selectInput("analysis_level_global_res", "Analyse by:", choices = c("Antibiotic", "Antibiotic Class")), uiOutput("drug_select_global_res")))
+                        column(6, wellPanel(h4("Global Cluster Map Filters"),
+                                            selectInput("species_global_cluster", "Select Species:", choices = unique(all_data_final$Species)),
+                                            selectInput("age_global_cluster", "Select Age Group:", choices = age_choices),
+                                            radioButtons("gender_global_cluster", "Select Gender:", choices = gender_choices, inline = TRUE)
+                        )),
+                        column(6, wellPanel(h4("Global Resistance Map Filters"),
+                                            selectInput("species_global_res", "Select Species:", choices = unique(all_data_final$Species)),
+                                            selectInput("analysis_level_global_res", "Analyse by:", choices = c("Antibiotic", "Antibiotic Class")),
+                                            uiOutput("drug_select_global_res"),
+                                            selectInput("age_global_res", "Select Age Group:", choices = age_choices),
+                                            radioButtons("gender_global_res", "Select Gender:", choices = gender_choices, inline = TRUE)
+                        ))
                       ),
                       fluidRow(column(6, plotOutput("cluster_map_global", height = "600px")), column(6, plotOutput("resistance_map_global", height = "600px")))
              ),
@@ -179,14 +191,19 @@ ui <- fluidPage(
                                                   "S. aureus" = "s_aureus"))
                         ),
                         mainPanel(
-                          # Use gt_output to render the gt table object
                           gt_output(outputId = "resistance_heatmap_display")
                         )
                       )
              ),
              tabPanel("Phenotype Resistance Trends",
                       sidebarLayout(
-                        sidebarPanel(h4("Filter Options"), width = 3, selectInput("species_pheno", "1. Select Species:", choices = unique(all_data_final$Species)), selectInput("super_region_pheno", "2. Select Super Region:", choices = unique(all_data_final$Super_Region)), uiOutput("country_select_ui_pheno"), uiOutput("year_slider_ui_pheno")),
+                        sidebarPanel(h4("Filter Options"), width = 3,
+                                     selectInput("species_pheno", "1. Select Species:", choices = unique(all_data_final$Species)),
+                                     selectInput("super_region_pheno", "2. Select Region:", choices = c("World", unique(levels(all_data_final$Super_Region)))),
+                                     uiOutput("country_select_ui_pheno"), 
+                                     selectInput("age_pheno", "4. Select Age Group:", choices = age_choices),
+                                     radioButtons("gender_pheno", "5. Select Gender:", choices = gender_choices, inline = TRUE),
+                                     uiOutput("year_slider_ui_pheno")),
                         mainPanel(plotOutput("phenotype_plot", height = "600px"))
                       )
              ),
@@ -196,7 +213,6 @@ ui <- fluidPage(
                         mainPanel(plotOutput("forecast_plot", height = "600px"), h4("Model Log"), verbatimTextOutput("forecast_log"))
                       )
              ),
-             # ----------- TAB 3: PATIENT RISK PREDICTOR -----------
              tabPanel("Patient Risk Predictor",
                       sidebarLayout(
                         sidebarPanel(
@@ -210,7 +226,6 @@ ui <- fluidPage(
                                                   "S. aureus" = "s_aureus")),
                           p("Enter the details below to predict the resistance profile."),
                           
-                          # --- Input Widgets for Predictors ---
                           radioButtons("pred_sexe", "Sex:", choices = c("Male", "Female"), inline = TRUE),
                           
                           selectInput("pred_dept", "Department:",
@@ -219,7 +234,7 @@ ui <- fluidPage(
                                                   "Medicine ICU","None Given","Surgery ICU","General Unspecified","ICU Other")),
                           
                           selectInput("pred_region", "Region:",
-                                      choices = levels(k_pneumoniae$Super_Region)),
+                                      choices = levels(all_data_final$Super_Region)),
                           selectInput("pred_age", "Age group:", choices = levels(k_pneumoniae$Age.Group)),
                           
                           actionButton("predict_button", "Predict Profile", class = "btn-primary")
@@ -247,23 +262,64 @@ server <- function(input, output, session) {
     }
     selectInput("drug_choice_global_res", "Select Antibiotic / Class:", choices = choices)
   })
+  
   map_data_global_cluster <- reactive({
-    req(input$species_global_cluster, input$year_range_global)
-    summary_data <- all_data_final %>% filter(Species == input$species_global_cluster, Year >= input$year_range_global[1], Year <= input$year_range_global[2]) %>% distinct(Isolate.ID, .keep_all = TRUE) %>% count(iso_a3, Cluster) %>% group_by(iso_a3) %>% slice_max(order_by = n, n = 1, with_ties = FALSE) %>% ungroup() %>% mutate(Dominant_Cluster = as.factor(Cluster))
+    req(input$species_global_cluster, input$year_range_global, input$age_global_cluster, input$gender_global_cluster)
+    
+    filtered_data <- all_data_final %>%
+      filter(
+        Species == input$species_global_cluster,
+        Year >= input$year_range_global[1],
+        Year <= input$year_range_global[2]
+      )
+    
+    if(input$age_global_cluster != "All") {
+      filtered_data <- filtered_data %>% filter(Age.Group == input$age_global_cluster)
+    }
+    if(input$gender_global_cluster != "All") {
+      filtered_data <- filtered_data %>% filter(Gender == input$gender_global_cluster)
+    }
+    
+    summary_data <- filtered_data %>%
+      distinct(Isolate.ID, .keep_all = TRUE) %>%
+      count(iso_a3, Cluster) %>%
+      group_by(iso_a3) %>%
+      slice_max(order_by = n, n = 1, with_ties = FALSE) %>%
+      ungroup() %>%
+      mutate(Dominant_Cluster = as.factor(Cluster))
+    
     world_map %>% left_join(summary_data, by = "iso_a3")
   })
+  
   map_data_global_resistance <- reactive({
-    req(input$species_global_res, input$drug_choice_global_res, input$year_range_global)
-    summary_data <- all_data_final %>% filter(Species == input$species_global_res, Year >= input$year_range_global[1], Year <= input$year_range_global[2], if (input$analysis_level_global_res == "Antibiotic") { Antibiotic == input$drug_choice_global_res } else { Antibiotic_Class == input$drug_choice_global_res }) %>% group_by(iso_a3) %>% summarise(Prevalence = sum(Resistance == "Resistant", na.rm = TRUE) / n(), .groups = 'drop')
+    req(input$species_global_res, input$drug_choice_global_res, input$year_range_global, input$age_global_res, input$gender_global_res)
+    
+    filtered_data <- all_data_final %>%
+      filter(
+        Species == input$species_global_res,
+        Year >= input$year_range_global[1],
+        Year <= input$year_range_global[2],
+        if (input$analysis_level_global_res == "Antibiotic") { Antibiotic == input$drug_choice_global_res } else { Antibiotic_Class == input$drug_choice_global_res }
+      )
+    
+    if(input$age_global_res != "All") {
+      filtered_data <- filtered_data %>% filter(Age.Group == input$age_global_res)
+    }
+    if(input$gender_global_res != "All") {
+      filtered_data <- filtered_data %>% filter(Gender == input$gender_global_res)
+    }
+    
+    summary_data <- filtered_data %>%
+      group_by(iso_a3) %>%
+      summarise(Prevalence = sum(Resistance == "Resistant", na.rm = TRUE) / n(), .groups = 'drop')
+    
     world_map %>% left_join(summary_data, by = "iso_a3")
   })
+  
   output$cluster_map_global <- renderPlot({ ggplot(data = map_data_global_cluster()) + geom_sf(aes(geometry = geometry, fill = Dominant_Cluster), color="white", linewidth=0.1) + scale_fill_viridis_d(na.value = "grey90", name = "Dominant Cluster") + labs(title = "Dominant Resistance Cluster by Country", subtitle = paste(input$species_global_cluster, "|", paste(input$year_range_global, collapse = "-"))) + theme_void() + theme(legend.position = "bottom") })
   output$resistance_map_global <- renderPlot({ ggplot(data = map_data_global_resistance()) + geom_sf(aes(geometry = geometry, fill = Prevalence), color="white", linewidth=0.1) + scale_fill_viridis_c(option = "magma", direction = -1, labels = scales::percent, na.value = "grey90", name = "Resistance") + labs(title = "Resistance Prevalence by Country", subtitle = paste(input$species_global_res, "|", input$drug_choice_global_res, "|", paste(input$year_range_global, collapse = "-"))) + theme_void() + theme(legend.position = "bottom") })
   
-  # --- ADDED SECTION: Server logic for the new Resistance Profiles tab ---
   output$resistance_heatmap_display <- render_gt({
-    # This reactive expression returns the correct pre-loaded gt table
-    # based on the user's selection from the dropdown.
     req(input$species_heatmap)
     switch(input$species_heatmap,
            "a_baumannii" = a_baumannii_heatmap,
@@ -276,43 +332,87 @@ server <- function(input, output, session) {
   })
   
   # === Phenotype Resistance Trends Tab ===
-  output$country_select_ui_pheno <- renderUI({ req(input$super_region_pheno); country_choices <- all_data_final %>% filter(Super_Region == input$super_region_pheno) %>% pull(Country) %>% unique() %>% sort(); all_option <- paste("--- All of", input$super_region_pheno, "---"); selectInput("country_pheno", "3. Select Country (Optional):", choices = c(all_option, country_choices)) })
-  output$year_slider_ui_pheno <- renderUI({ year_range <- range(all_data_final$Year, na.rm = TRUE); sliderInput("year_range_pheno", "4. Select Year Range:", min = year_range[1], max = year_range[2], value = year_range, step = 1, sep = "") })
-  filtered_data_pheno <- reactive({
-    req(input$species_pheno, input$country_pheno, input$year_range_pheno)
-    all_option_check <- paste("--- All of", input$super_region_pheno, "---")
-    geo_filtered <- if (input$country_pheno == all_option_check) { all_data_final %>% filter(Super_Region == input$super_region_pheno) } else { all_data_final %>% filter(Country == input$country_pheno) }
-    geo_filtered %>% filter(Species == input$species_pheno, Year >= input$year_range_pheno[1], Year <= input$year_range_pheno[2])
+  
+  output$country_select_ui_pheno <- renderUI({
+    req(input$super_region_pheno)
+    if (input$super_region_pheno == "World") {
+      return(NULL)
+    }
+    country_choices <- all_data_final %>% filter(Super_Region == input$super_region_pheno) %>% pull(Country) %>% unique() %>% sort()
+    all_option <- paste("--- All of", input$super_region_pheno, "---")
+    selectInput("country_pheno", "3. Select Country (Optional):", choices = c(all_option, country_choices))
   })
+  
+  output$year_slider_ui_pheno <- renderUI({
+    year_range <- range(all_data_final$Year, na.rm = TRUE)
+    sliderInput("year_range_pheno", "6. Select Year Range:", min = year_range[1], max = year_range[2], value = year_range, step = 1, sep = "")
+  })
+  
+  filtered_data_pheno <- reactive({
+    req(input$species_pheno, input$super_region_pheno, input$year_range_pheno, input$age_pheno, input$gender_pheno)
+    
+    base_data <- all_data_final %>%
+      filter(
+        Species == input$species_pheno,
+        Year >= input$year_range_pheno[1],
+        Year <= input$year_range_pheno[2]
+      )
+    
+    if (input$age_pheno != "All") {
+      base_data <- base_data %>% filter(Age.Group == input$age_pheno)
+    }
+    if (input$gender_pheno != "All") {
+      base_data <- base_data %>% filter(Gender == input$gender_pheno)
+    }
+    
+    if (input$super_region_pheno == "World") {
+      return(base_data)
+    } else {
+      req(input$country_pheno)
+      all_option_check <- paste("--- All of", input$super_region_pheno, "---")
+      if (input$country_pheno == all_option_check) {
+        base_data %>% filter(Super_Region == input$super_region_pheno)
+      } else {
+        base_data %>% filter(Country == input$country_pheno)
+      }
+    }
+  })
+  
   output$phenotype_plot <- renderPlot({
     plot_data <- filtered_data_pheno()
     if (nrow(plot_data) == 0) return(ggplot() + labs(title = "No data available for this selection") + theme_void())
-    plot_data_summary <- plot_data %>% distinct(Isolate.ID, .keep_all = TRUE) %>% count(Year, Cluster) %>% group_by(Year) %>% mutate(Proportion = n / sum(n)) %>% ungroup()
-    ggplot(plot_data_summary, aes(x = Year, y = Proportion, fill = as.factor(Cluster))) + geom_area(position = "fill", alpha = 0.8) + scale_y_continuous(labels = scales::percent_format()) + scale_x_continuous(breaks = scales::pretty_breaks()) + labs(title = "Temporal Trend of Resistance Clusters", subtitle = paste("Location:", input$country_pheno), x = "Year", y = "Proportion of Isolates", fill = "Cluster") + theme_minimal(base_size = 14) + theme(legend.position = "bottom")
+    
+    plot_data_summary <- plot_data %>%
+      distinct(Isolate.ID, .keep_all = TRUE) %>%
+      count(Year, Cluster) %>%
+      group_by(Year) %>%
+      mutate(Proportion = n / sum(n)) %>%
+      ungroup()
+    
+    location_label <- if (input$super_region_pheno == "World") {
+      "World"
+    } else {
+      input$country_pheno
+    }
+    
+    ggplot(plot_data_summary, aes(x = Year, y = Proportion, fill = as.factor(Cluster))) +
+      geom_area(position = "fill", alpha = 0.8) +
+      scale_y_continuous(labels = scales::percent_format()) +
+      scale_x_continuous(breaks = scales::pretty_breaks()) +
+      labs(
+        title = "Temporal Trend of Resistance Clusters",
+        subtitle = paste("Location:", location_label),
+        x = "Year",
+        y = "Proportion of Isolates",
+        fill = "Cluster"
+      ) +
+      theme_minimal(base_size = 14) +
+      theme(legend.position = "bottom")
   })
+  
   # --- SERVER LOGIC FOR TAB 3: PREDICTION ---
   
-  predictor_formula <- Cluster ~ Super_Region + Gender + Age.Group + Speciality
-  
-  # Training a specific predictor model for each pathogen
-  a_baumannii_predictor_model <- multinom(predictor_formula, data = a_baumannii)
-  e_faecium_predictor_model   <- multinom(predictor_formula, data = e_faecium)
-  e_spp_predictor_model       <- multinom(predictor_formula, data = e_spp)
-  k_pneumoniae_predictor_model  <- multinom(predictor_formula, data = k_pneumoniae)
-  p_aeruginosa_predictor_model <- multinom(predictor_formula, data = p_aeruginosa)
-  s_aureus_predictor_model    <- multinom(predictor_formula, data = s_aureus)
-  
-  # Creating a reactive to select the correct model based on the pathogen
-  active_model <- reactive({
-    req(input$pathogen_input) # Good practice: ensure an input is selected
-    switch(input$pathogen_input,
-           "a_baumannii" = a_baumannii_predictor_model,
-           "e_faecium" = e_faecium_predictor_model,
-           "e_spp" = e_spp_predictor_model,
-           "p_aeruginosa" = p_aeruginosa_predictor_model,
-           "s_aureus" = s_aureus_predictor_model,
-           "k_pneumoniae" = k_pneumoniae_predictor_model)
-  })
+  # --- MODIFICATION: Removed all global model training ---
   
   active_dataset <- reactive({
     req(input$pathogen_input)
@@ -325,82 +425,55 @@ server <- function(input, output, session) {
            "k_pneumoniae" = k_pneumoniae)
   })
   
-  # 2. Use observeEvent to run the prediction ONLY when the button is clicked
-  #    We store the result in a reactiveVal to use it for plotting.
-  # Replace your existing eventReactive block with this one
-  
   prediction_result <- eventReactive(input$predict_button, {
     
-    new_data <- tibble(
-      Age.Group = factor(input$pred_age),
-      Gender = factor(input$pred_sexe),
-      Speciality = factor(input$pred_dept),
-      Super_Region = factor(input$pred_region)
-    )
-    
-    
-    # Get the active model
-    model <- active_model()
-    
-    # Get ALL possible cluster names directly from the model object
-    all_cluster_names <- model$lev
-    
-    # Use the model to predict probabilities
-    probs <- predict(model, newdata = new_data, type = "prob")
-    
-    # --- Part 2: The Bootstrap Procedure ---
-    
-    # Set the number of bootstrap repetitions.
-    n_boot <- 20
-    
-    # Get the original dataset to resample from
-    original_data <- active_dataset()
-    
-    # Run the bootstrap
-    bootstrap_probs <- replicate(n_boot, {
-      # 1. Create a bootstrap sample of the original data
-      boot_sample <- original_data[sample(1:nrow(original_data), replace = TRUE), ]
+    withProgress(message = 'Running Prediction', value = 0, {
       
-      # 2. Refit the model on the bootstrap sample
-      boot_model <- suppressWarnings(multinom(
-        Cluster ~ Super_Region + Gender + Age.Group + Speciality, data= boot_sample))
+      setProgress(value = 0.1, detail = "Loading data...")
+      original_data <- active_dataset()
       
-      # 3. Predict probabilities for new_data using the bootstrap model
-      predict(boot_model, newdata = new_data, type = "prob")
-    })
-    
-    # The bootstrap_probs object is now a matrix where each column is a set of predictions
-    # and each row represents a cluster.
-    
-    # --- Part 3: Calculate CIs and format for plotting ---
-    
-    # Calculate the lower, median, and upper bounds for each cluster's probability
-    prob_cis <- apply(bootstrap_probs, 1, quantile, probs = c(0.025, 0.5, 0.975)) %>%
-      t() %>%
-      as.data.frame()
-    
-    colnames(prob_cis) <- c("LowerCI", "Probability", "UpperCI")
-    prob_cis$Cluster <- rownames(prob_cis)
-    
-    
-    print(prob_cis) # For debugging
-    
-    return(prob_cis)
+      predictor_formula <- Cluster ~ Super_Region + Gender + Age.Group + Speciality
+      
+#Training model on-demand -- just trying to make it less computationally heavy - I (might) change it back if it still doesn't run
+      setProgress(value = 0.3, detail = "Training model...")
+      model <- multinom(predictor_formula, data = original_data)
+      
+      new_data <- tibble(
+        Age.Group = factor(input$pred_age, levels = levels(original_data$Age.Group)),
+        Gender = factor(input$pred_sexe, levels = levels(original_data$Gender)),
+        Speciality = factor(input$pred_dept, levels = levels(original_data$Speciality)),
+        Super_Region = factor(input$pred_region, levels = levels(original_data$Super_Region))
+      )
+      
+      # --- same here: bootstrapping on demand
+      setProgress(value = 0.6, detail = "Running bootstrap for CIs...")
+      n_boot <- 20
+      
+      bootstrap_probs <- replicate(n_boot, {
+        boot_sample <- original_data[sample(1:nrow(original_data), replace = TRUE), ]
+        boot_model <- suppressWarnings(multinom(predictor_formula, data= boot_sample))
+        predict(boot_model, newdata = new_data, type = "prob")
+      })
+      
+      setProgress(value = 0.9, detail = "Finalizing results...")
+      prob_cis <- apply(bootstrap_probs, 1, quantile, probs = c(0.025, 0.5, 0.975)) %>%
+        t() %>%
+        as.data.frame()
+      
+      colnames(prob_cis) <- c("LowerCI", "Probability", "UpperCI")
+      prob_cis$Cluster <- rownames(prob_cis)
+      
+      return(prob_cis)
+    }) # End withProgress
   })
   
-  # 3. Render the plot showing the prediction results with error bars
   output$prediction_plot <- renderPlot({
     
-    # The plot will only appear after the button is clicked
     result_to_plot <- prediction_result()
     
     ggplot(result_to_plot, aes(x = Cluster, y = Probability, fill = Cluster)) +
-      # Draw the main bar for the median prediction
       geom_col(alpha = 0.9) +
-      
-      # --- THIS IS THE NEW PART: Add error bars for the CI ---
       geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2, linewidth = 0.8) +
-      
       geom_text(aes(label = scales::percent(Probability, accuracy = 0.1)), vjust = -2.5, size = 5) +
       scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
       scale_fill_brewer(palette = "Set2", guide = "none") +
@@ -424,14 +497,14 @@ server <- function(input, output, session) {
     results <- forecast_data()
     if(!is.null(results$forecast_summary)){
       choices <- unique(results$forecast_summary$Cluster)
-      selectInput("cluster_forecast_choice", "3. Select Cluster to Display:", choices = sort((choices)))
+      selectInput("cluster_select_choice", "3. Select Cluster to Display:", choices = sort((choices)))
     }
   })
   output$forecast_plot <- renderPlot({
-    req(forecast_data(), input$cluster_forecast_choice)
+    req(forecast_data(), input$cluster_select_choice)
     results <- forecast_data()
     if (is.null(results$forecast_summary)) { return(ggplot() + labs(title = results$log) + theme_void()) }
-    cluster_to_plot <- input$cluster_forecast_choice
+    cluster_to_plot <- input$cluster_select_choice
     plot_data_hist <- results$historical_data %>% filter(Cluster == cluster_to_plot)
     plot_data_fcst <- results$forecast_summary %>% filter(Cluster == cluster_to_plot)
     if(nrow(plot_data_hist) == 0) return(ggplot() + labs(title=paste("No historical data for Cluster", cluster_to_plot)) + theme_void())
