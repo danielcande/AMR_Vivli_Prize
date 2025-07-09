@@ -730,17 +730,17 @@ e_faecium$Cluster <- factor(e_faecium$Cluster, levels = c(1,2,3,4,5),
 
 e_spp$Cluster <- factor(e_spp$Cluster, levels = c(1,2,3,4,5), 
                         labels= c("XDR-CRE","ESBL, Carbapenem-S","MDR, Carbapenem-S, (AmpC-like)",
-                                  "Amp-R, ESBL-Negative","Pan-Susceptible"))
+                                  "Amp-R, ESBL-Negative","Low-level Resistance"))
 
 k_pneumoniae$Cluster <- factor(k_pneumoniae$Cluster, levels=c(1,2,3,4,5),
-                               labels=c("CRE XDR","ESBL-like MDR","AmpC-like MDR","Susceptible(Intrinsic Amp-R)",
+                               labels=c("CRE XDR","ESBL-like MDR","Susceptible(Intrinsic Amp-R)","AmpC-like MDR",
                                         "non-CRE XDR"))  #Critical cluster is CRE XDR, high risk is non-CRE XDR, ref is Intrinsic Amp-R 
 
 p_aeruginosa$Cluster <- factor(p_aeruginosa$Cluster, levels=c(1,2,3,4,5),
-                               labels=c("Pan-S","Fluoroq-R","MDR","CRP","XDR-CRP"))
+                               labels=c("Pan-S","XDR-CRP","MDR","CRP","Fluoroq-R"))
 
 s_aureus$Cluster <- factor(s_aureus$Cluster, levels=c(1,2,3,4),
-                           labels=c("MRSA(Gentamicin-R","MRSA(Fluoroq-R)","MSSA","MRSA(Gentamicin-S)"))
+                           labels=c("HA-MDR-MRSA","CA-MRSA","Macrolide-R MSSA","MSSA"))
 
 #Adding genetic data
 a_baumannii <- a_baumannii %>%
@@ -753,7 +753,7 @@ a_baumannii <- a_baumannii %>%
 #Set reference class
 a_baumannii$Cluster <- relevel(a_baumannii$Cluster, ref = "Pan-susceptible")
 e_faecium$Cluster <- relevel(e_faecium$Cluster, ref = "Pan-susceptible")
-e_spp$Cluster <- relevel(e_spp$Cluster, ref = "Pan-Susceptible")
+e_spp$Cluster <- relevel(e_spp$Cluster, ref = "Low-level Resistance")
 p_aeruginosa$Cluster <- relevel(p_aeruginosa$Cluster, ref = "Pan-S")
 k_pneumoniae$Cluster <- relevel(k_pneumoniae$Cluster, ref = "Susceptible(Intrinsic Amp-R)")
 s_aureus$Cluster <- relevel(s_aureus$Cluster, ref = "MSSA")
@@ -1277,7 +1277,7 @@ e_spp_3 %>%
   tbl_summary()
 
 e_spp_4 <- e_spp %>%
-  filter(Cluster=="Pan-Susceptible")
+  filter(Cluster=="Low-level Resistance")
 
 e_spp_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1295,7 +1295,7 @@ e_spp_5 %>%
 #S. aureus
 
 s_aureus_1 <- s_aureus %>%
-  filter(Cluster == "MRSA(Gentamicin-R")
+  filter(Cluster == "HA-MDR-MRSA")
 
 s_aureus_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1303,7 +1303,7 @@ s_aureus_1 %>%
   tbl_summary()
 
 s_aureus_2 <- s_aureus %>%
-  filter(Cluster == "MRSA(Fluoroq-R)")
+  filter(Cluster == "CA-MRSA")
 
 s_aureus_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1319,7 +1319,7 @@ s_aureus_3 %>%
   tbl_summary()
 
 s_aureus_4 <- s_aureus %>%
-  filter(Cluster == "MRSA(Gentamicin-S)")
+  filter(Cluster == "Macrolide-R MSSA")
 
 s_aureus_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,

@@ -143,8 +143,8 @@ generate_forecast_data <- function(proportions_data, target_species, target_regi
     forecast_summary_list[[target_var_name]] <- data.frame(
       Year = (last_known_year + 1):(last_known_year + n_forecast_years),
       Point_Forecast = apply(predictions_for_one_cluster, 2, mean),
-      Lower_CI = apply(predictions_for_one_cluster, 2, quantile, probs = 0.025),
-      Upper_CI = apply(predictions_for_one_cluster, 2, quantile, probs = 0.975),
+      LowerCI = apply(predictions_for_one_cluster, 2, quantile, probs = 0.025),
+      UpperCI = apply(predictions_for_one_cluster, 2, quantile, probs = 0.975),
       Cluster = gsub("Cluster_", "", target_var_name)
     )
   }
@@ -338,7 +338,14 @@ server <- function(input, output, session) {
     if (input$super_region_pheno == "World") {
       return(NULL)
     }
-    country_choices <- all_data_final %>% filter(Super_Region == input$super_region_pheno) %>% pull(Country) %>% unique() %>% sort()
+    # --- MODIFICATION: Explicitly convert Country to character to ensure correct values ---
+    country_choices <- all_data_final %>%
+      filter(Super_Region == input$super_region_pheno) %>%
+      pull(Country) %>%
+      as.character() %>% # This is the key fix
+      unique() %>%
+      sort()
+    
     all_option <- paste("--- All of", input$super_region_pheno, "---")
     selectInput("country_pheno", "3. Select Country (Optional):", choices = c(all_option, country_choices))
   })
@@ -389,10 +396,11 @@ server <- function(input, output, session) {
       mutate(Proportion = n / sum(n)) %>%
       ungroup()
     
+    # --- MODIFICATION: Corrected the location label logic ---
     location_label <- if (input$super_region_pheno == "World") {
       "World"
     } else {
-      input$country_pheno
+      input$country_pheno # Directly use the input value
     }
     
     ggplot(plot_data_summary, aes(x = Year, y = Proportion, fill = as.factor(Cluster))) +
@@ -411,8 +419,6 @@ server <- function(input, output, session) {
   })
   
   # --- SERVER LOGIC FOR TAB 3: PREDICTION ---
-  
-  # --- MODIFICATION: Removed all global model training ---
   
   active_dataset <- reactive({
     req(input$pathogen_input)
@@ -434,7 +440,6 @@ server <- function(input, output, session) {
       
       predictor_formula <- Cluster ~ Super_Region + Gender + Age.Group + Speciality
       
-#Training model on-demand -- just trying to make it less computationally heavy - I (might) change it back if it still doesn't run
       setProgress(value = 0.3, detail = "Training model...")
       model <- multinom(predictor_formula, data = original_data)
       
@@ -445,7 +450,6 @@ server <- function(input, output, session) {
         Super_Region = factor(input$pred_region, levels = levels(original_data$Super_Region))
       )
       
-      # --- same here: bootstrapping on demand
       setProgress(value = 0.6, detail = "Running bootstrap for CIs...")
       n_boot <- 20
       
@@ -516,7 +520,7 @@ server <- function(input, output, session) {
     }
     ggplot(plot_data_hist, aes(x = Year, y = Actual_Proportion)) +
       geom_line(aes(color = "Actual"), linewidth = 1.2) +
-      geom_ribbon(data = plot_data_fcst, aes(x = Year, ymin = Lower_CI, ymax = Upper_CI), fill = "skyblue", alpha = 0.5, inherit.aes = FALSE) +
+      geom_ribbon(data = plot_data_fcst, aes(x = Year, ymin = LowerCI, ymax = UpperCI), fill = "skyblue", alpha = 0.5, inherit.aes = FALSE) +
       geom_line(data = forecast_line_data, aes(x = Year, y = Point_Forecast, color = "Forecast"), linewidth = 1.2, linetype = "dashed") +
       labs(title = "XGBoost Forecast with 95% Confidence Interval", subtitle = paste("Forecast for Cluster", cluster_to_plot, "in", input$region_forecast), y = "Proportion of Isolates", color = "Legend") +
       scale_color_manual(values = c("Actual" = "black", "Forecast" = "red")) +
