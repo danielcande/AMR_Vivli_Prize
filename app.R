@@ -11,14 +11,14 @@ library(sf)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(countrycode)
-library(DBI)
-library(xgboost)
-library(RSQLite)
-library(gt) 
-library(dplyr)
-library(nnet) 
 
-con <- dbConnect(RSQLite::SQLite(), "vivli_database.sqlite")
+library(xgboost)
+
+library(gt) # Required for displaying the heatmap tables
+
+library(nnet) # Required for the multinomial model in the predictor
+
+load("vivli_data_compressed.RData")
 
 # --- 2. Check for and Combine Pre-Loaded Data ---
 
