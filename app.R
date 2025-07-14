@@ -18,7 +18,7 @@ library(gt) # Required for displaying the heatmap tables
 
 library(nnet) # Required for the multinomial model in the predictor
 
-readRDS("vivli_data_compressed.RData")
+load("vivli_data_compressed.RData")
 
 # --- 2. Check for and Combine Pre-Loaded Data ---
 
