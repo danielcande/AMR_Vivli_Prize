@@ -114,7 +114,7 @@ s_aureus <- s_aureus %>%
 
 #STep 1: defining antibiotic names
 a_baumannii_antibiotics <- a_baumannii %>%
-  dplyr::select(14:23,) %>%
+  dplyr::select(14:27,) %>%
   colnames() %>%
   gsub("_I$","",.)
 
@@ -552,7 +552,7 @@ compare_lca_models <- function(data, formula, max_classes = 6) {
 }
 
 # Run for E. coli and S. aureus
-a_baumannii_comparison <- compare_lca_models(a_baumannii_abx, f_a_baumannii, max_classes = 4) #4 classes
+a_baumannii_comparison <- compare_lca_models(a_baumannii_abx, f_a_baumannii, max_classes = 15) #4 classes
 #e_coli_comparison <- compare_lca_models(e_coli_abx, f_e_coli, max_classes = 20)
 e_faecium_comparison <- compare_lca_models(e_faecium_abx, f_e_faecium, max_classes = 5) #5 clusters
 e_spp_comparison <- compare_lca_models(e_spp_abx, f_e_spp, max_classes = 5) #5 clusters
@@ -720,27 +720,27 @@ s_aureus <- s_aureus %>%
 
 #Changing clusters to factors with descriptive names
 a_baumannii$Cluster <- factor(a_baumannii$Cluster, levels = c(1,2,3,4),
-                              labels = c("Pan-susceptible","Non-CRAB MDRAB","CRAB MDRAB","Low-Level Resistance"))
+                              labels = c("XDR-CRAB","Non-CRAB MDRAB","MDR-CRAB","Pan-Susceptible"))
 
 
 e_faecium$Cluster <- factor(e_faecium$Cluster, levels = c(1,2,3,4,5), 
-                            labels = c("VS-MDR (Vancomycin-susceptible)","VR-MR (Vancomycin-resistant",
-                                       "Amp-S, Van-S, E-R (Ampicillin-Susceptible, Erythromycin-Resistant Cluster",
-                                       "Pan-susceptible","High-Level Penicillin-Resistant VSE"))
+                            labels = c("Vancomycin-S MDR","Vancomycin-R MDR",
+                                       "Macrolide-R",
+                                       "Pan-Susceptible","Complete Penicillin-R"))
 
 e_spp$Cluster <- factor(e_spp$Cluster, levels = c(1,2,3,4,5), 
-                        labels= c("XDR-CRE","ESBL, Carbapenem-S","MDR, Carbapenem-S, (AmpC-like)",
-                                  "Amp-R, ESBL-Negative","Low-level Resistance"))
+                        labels= c("XDR-CRE","Carbapenem-S ESBL","MDR Carbapenem-S ESBL",
+                                  "AmpC Mixed-ESBL","Susceptible / Wild-Type AmpC"))
 
 k_pneumoniae$Cluster <- factor(k_pneumoniae$Cluster, levels=c(1,2,3,4,5),
-                               labels=c("CRE XDR","ESBL-like MDR","Susceptible(Intrinsic Amp-R)","AmpC-like MDR",
+                               labels=c("XDR-CRE","MDR ESBL","Susceptible/Wild-Type AmpC","MDR-AmpC",
                                         "non-CRE XDR"))  #Critical cluster is CRE XDR, high risk is non-CRE XDR, ref is Intrinsic Amp-R 
 
 p_aeruginosa$Cluster <- factor(p_aeruginosa$Cluster, levels=c(1,2,3,4,5),
-                               labels=c("Pan-S","XDR-CRP","MDR","CRP","Fluoroq-R"))
+                               labels=c("Pan-Susceptible","XDR-CRP","Low-Level Resistance","CRP","Fluoroq-R"))
 
 s_aureus$Cluster <- factor(s_aureus$Cluster, levels=c(1,2,3,4),
-                           labels=c("HA-MDR-MRSA","CA-MRSA","Macrolide-R MSSA","MSSA"))
+                           labels=c("HA-MDR-MRSA","CA-MRSA","Pan-Susceptible MSSA","Penicillin-R MSSA"))
 
 #Adding genetic data
 a_baumannii <- a_baumannii %>%
@@ -751,7 +751,7 @@ a_baumannii <- a_baumannii %>%
 #Running regression with class as output
 
 #Set reference class
-a_baumannii$Cluster <- relevel(a_baumannii$Cluster, ref = "Pan-susceptible")
+a_baumannii$Cluster <- relevel(a_baumannii$Cluster, ref = "Pan-Susceptible")
 e_faecium$Cluster <- relevel(e_faecium$Cluster, ref = "Pan-susceptible")
 e_spp$Cluster <- relevel(e_spp$Cluster, ref = "Low-level Resistance")
 p_aeruginosa$Cluster <- relevel(p_aeruginosa$Cluster, ref = "Pan-S")
@@ -933,26 +933,26 @@ a_baumannii_results_grouped <- a_baumannii_results %>%
     )) %>%
     mutate(group = ifelse(is.na(group), term, group))
 
-# ggplot(
-#   data = a_baumannii_results_grouped, 
-#   aes(x = estimate, y = group, xmin = conf.low, xmax = conf.high, color = is_significant)
-# ) +
-#   geom_point(size = 3) +
-#   geom_errorbarh(height = 0.2, linewidth = 1) +
-#   geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
-#   scale_x_log10() +
-#   facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
-#   scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"), name = "Significant (p < 0.05)") +
-#   labs(
-#     title = "Forest Plot of Multinomial Regression for K. pneumoniae",
-#     subtitle = "Odds Ratios and 95% Confidence Intervals (Generated with Fast Function)",
-#     x = "Odds Ratio (log scale)",
-#     y = "Predictor Variable"
-#   ) +
-#   theme_minimal() +
-#   theme(legend.position = "bottom")
-# # View the first few rows of the tidy results
-# # print(head(k_pneumoniae_results))
+ggplot(
+  data = a_baumannii_results_grouped,
+  aes(x = estimate, y = group, xmin = conf.low, xmax = conf.high, color = is_significant)
+) +
+  geom_point(size = 3) +
+  geom_errorbarh(height = 0.2, linewidth = 1) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey40") +
+  scale_x_log10() +
+  facet_wrap(~ y.level, ncol = 2, scales = "free_y") +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"), name = "Significant (p < 0.05)") +
+  labs(
+    title = "Forest Plot of Multinomial Regression for K. pneumoniae",
+    subtitle = "Odds Ratios and 95% Confidence Intervals (Generated with Fast Function)",
+    x = "Odds Ratio (log scale)",
+    y = "Predictor Variable"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+# View the first few rows of the tidy results
+# print(head(k_pneumoniae_results))
 
 # Create the forest plot
 ggplot(
@@ -1176,7 +1176,7 @@ ggplot(
   )
 
 a_baumannii_1 <- a_baumannii %>%
-  filter(Cluster== "Pan-susceptible")
+  filter(Cluster== "Pan-Susceptible")
 
 a_baumannii_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1192,7 +1192,7 @@ a_baumannii_2 %>%
   tbl_summary()
 
 a_baumannii_3 <- a_baumannii %>%
-  filter(Cluster=="CRAB MDRAB")
+  filter(Cluster=="MDR-CRAB")
 
 a_baumannii_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1200,7 +1200,7 @@ a_baumannii_3 %>%
   tbl_summary()
 
 a_baumannii_4 <- a_baumannii %>%
-  filter(Cluster=="Low-Level Resistance")
+  filter(Cluster=="XDR-CRAB")
 
 a_baumannii_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1212,7 +1212,7 @@ a_baumannii_4 %>%
 #E. faecium
 
 e_faecium_1 <- e_faecium %>%
-  filter(Cluster=="VS-MDR (Vancomycin-susceptible)")
+  filter(Cluster=="Vancomycin-S MDR")
 
 e_faecium_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1220,7 +1220,7 @@ e_faecium_1 %>%
   tbl_summary()
 
 e_faecium_2 <- e_faecium %>%
-  filter(Cluster=="VR-MR (Vancomycin-resistant")
+  filter(Cluster=="Vancomycin-R MDR")
 
 e_faecium_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1228,7 +1228,7 @@ e_faecium_2 %>%
   tbl_summary()
 
 e_faecium_3 <- e_faecium %>%
-  filter(Cluster=="Amp-S, Van-S, E-R (Ampicillin-Susceptible, Erythromycin-Resistant Cluster")
+  filter(Cluster=="Macrolide-R")
 
 e_faecium_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1236,7 +1236,7 @@ e_faecium_3 %>%
   tbl_summary()
 
 e_faecium_4 <- e_faecium %>%
-  filter(Cluster=="Pan-susceptible")
+  filter(Cluster=="Pan-Susceptible")
 
 e_faecium_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1244,7 +1244,7 @@ e_faecium_4 %>%
   tbl_summary()
 
 e_faecium_5 <- e_faecium %>%
-  filter(Cluster=="High-Level Penicillin-Resistant VSE")
+  filter(Cluster=="Complete Penicillin-R")
 
 e_faecium_5 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1261,7 +1261,7 @@ e_spp_1 %>%
   tbl_summary()
 
 e_spp_2 <- e_spp %>%
-  filter(Cluster == "ESBL, Carbapenem-S")
+  filter(Cluster == "Carbapenem-S ESBL")
 
 e_spp_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1269,7 +1269,7 @@ e_spp_2 %>%
   tbl_summary()
 
 e_spp_3 <- e_spp %>%
-  filter(Cluster=="MDR, Carbapenem-S, (AmpC-like)")
+  filter(Cluster=="MDR Carbapenem-S ESBL")
 
 e_spp_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1277,7 +1277,7 @@ e_spp_3 %>%
   tbl_summary()
 
 e_spp_4 <- e_spp %>%
-  filter(Cluster=="Low-level Resistance")
+  filter(Cluster=="AmpC Mixed-ESBL")
 
 e_spp_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1285,7 +1285,7 @@ e_spp_4 %>%
   tbl_summary()
 
 e_spp_5 <- e_spp %>%
-  filter(Cluster=="Amp-R, ESBL-Negative")
+  filter(Cluster=="Susceptible / Wild-Type AmpC")
 
 e_spp_5 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1311,7 +1311,7 @@ s_aureus_2 %>%
   tbl_summary()
 
 s_aureus_3 <- s_aureus %>%
-  filter(Cluster == "MSSA")
+  filter(Cluster == "Penicillin-R MSSA")
 
 s_aureus_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1319,7 +1319,7 @@ s_aureus_3 %>%
   tbl_summary()
 
 s_aureus_4 <- s_aureus %>%
-  filter(Cluster == "Macrolide-R MSSA")
+  filter(Cluster == "Pan-Susceptible MSSA")
 
 s_aureus_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1329,7 +1329,7 @@ s_aureus_4 %>%
 
 
 k_pneumoniae_1 <- k_pneumoniae %>%
-  filter(Cluster == "CRE XDR")
+  filter(Cluster == "XDR-CRE")
 
 k_pneumoniae_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1337,7 +1337,7 @@ k_pneumoniae_1 %>%
   tbl_summary()
 
 k_pneumoniae_2 <- k_pneumoniae %>%
-  filter(Cluster == "ESBL-like MDR")
+  filter(Cluster == "MDR ESBL")
 
 k_pneumoniae_2 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1346,7 +1346,7 @@ k_pneumoniae_2 %>%
 
 
 k_pneumoniae_3 <- k_pneumoniae %>%
-  filter(Cluster == "AmpC-like MDR")
+  filter(Cluster == "Susceptible/Wild-Type AmpC")
 
 k_pneumoniae_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1355,7 +1355,7 @@ k_pneumoniae_3 %>%
 
 
 k_pneumoniae_4 <- k_pneumoniae %>%
-  filter(Cluster == "Susceptible(Intrinsic Amp-R)")
+  filter(Cluster == "MDR-AmpC")
 
 k_pneumoniae_4 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1373,7 +1373,7 @@ k_pneumoniae_5 %>%
 
 
 p_aeruginosa_1 <- p_aeruginosa %>%
-  filter(Cluster == "Pan-S")
+  filter(Cluster == "Pan-Susceptible")
 
 p_aeruginosa_1 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1390,7 +1390,7 @@ p_aeruginosa_2 %>%
 
 
 p_aeruginosa_3 <- p_aeruginosa %>%
-  filter(Cluster == "MDR")
+  filter(Cluster == "Low-Level Resistance")
 
 p_aeruginosa_3 %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
@@ -1540,26 +1540,38 @@ p_aeruginosa_resistance_prob <- p_aeruginosa_model$probs %>%
 #Making class lookup objects
 a_baumannii_antibiotic_class_lookup <- c(
   # --- Beta-lactams ---
-  # Cephalosporins (often grouped by generation or just as 'Cephalosporin')
-  "Cefepime" = "Cephalosporin",      # Typically 4th generation
-  "Ceftazidime" = "Cephalosporin",   # Typically 3rd generation
-  "Ceftriaxone" = "Cephalosporin",   # Typically 3rd generation
+  # Cephalosporins
+  "Cefepime" = "Cephalosporin",      # 4th generation
+  "Ceftazidime" = "Cephalosporin",   # 3rd generation
+  "Ceftriaxone" = "Cephalosporin",   # 3rd generation
   
   # Carbapenems
   "Imipenem" = "Carbapenem",
   "Meropenem" = "Carbapenem",
+  "Doripenem" = "Carbapenem",        # Added
   
   # Penicillin + Beta-Lactamase Inhibitor Combinations
-  "Piperacillin.tazobactam" = "Penicillin + Inhibitor", # Often called Piperacillin/Tazobactam
-  "Ampicillin.sulbactam" = "Penicillin + Inhibitor",   # Often called Ampicillin/Sulbactam
+  "Piperacillin.tazobactam" = "Penicillin + Inhibitor",
+  "Ampicillin.sulbactam" = "Penicillin + Inhibitor",
   
-  # --- Fluoroquinolones ---
+  # --- Other Classes ---
+  # Fluoroquinolones
   "Levofloxacin" = "Fluoroquinolone",
   "Ciprofloxacin" = "Fluoroquinolone",
   
-  # --- Tetracyclines ---
-  "Minocycline" = "Tetracycline"
+  # Tetracyclines
+  "Minocycline" = "Tetracycline",
+  
+  # Aminoglycosides
+  "Gentamicin" = "Aminoglycoside",    # Added
+  
+  # Polymyxins
+  "Colistin" = "Polymyxin",          # Added
+  
+  # Sulfonamides
+  "Trimethoprim.sulfa" = "Sulfonamide combination" # Added
 )
+
 
 e_faecium_class_lookup <- c(
   "Ampicillin" = "Penicillin",
@@ -2068,23 +2080,24 @@ country_to_region_lookup <- tibble::tribble(
 #Plotting resistance grouper by antibiotic class and cluster
 
 generate_resistance_heatmap <- function(resistance_prob){
+  # Aggregate probabilities by cluster and antibiotic class
   aggregated_probs <- resistance_prob %>%
     group_by(Class, Antibiotic_Class) %>%
     summarise(
-      mean_probs=mean(Probability, na.rm=TRUE)
-    ) %>%
-    ungroup()
+      mean_probs = mean(Probability, na.rm = TRUE),
+      .groups = 'drop' # Recommended to explicitly drop groups
+    )
   
+  # Pivot the data to create the heatmap structure
   class_probs_table <- aggregated_probs %>%
     pivot_wider(
       names_from = Antibiotic_Class,
       values_from = mean_probs
     )
   
-  
-  # Create the table
+  # Create the gt table for the heatmap
   heatmap_table <- class_probs_table %>%
-    gt(rowname_col = "Cluster") %>% 
+    gt(rowname_col = "Cluster") %>%
     
     # Add a main title and subtitle
     tab_header(
@@ -2095,23 +2108,27 @@ generate_resistance_heatmap <- function(resistance_prob){
     # Add a spanner header over the antibiotic columns
     tab_spanner(
       label = md("**Antibiotic Class**"),
-      columns = everything() # Apply to all columns except the row labels
+      columns = where(is.numeric) # Apply only to numeric columns
     ) %>%
     
     # Format the numbers as percentages with one decimal place
     fmt_percent(
-      columns = everything(),
+      columns = where(is.numeric),
       decimals = 1
     ) %>%
+    
     data_color(
       columns = where(is.numeric),
       colors = scales::col_numeric(
-        palette = c("#63BE7B", "#FFEB84", "#F8696B"), # Green, Yellow, Red
-        domain = c(0, 1) 
+        # This Blue-Yellow-Red palette is effective and accessible.
+        # Low resistance (blue) -> Mid (yellow) -> High resistance (red)
+        palette = c("#4575B4", "#FFFFBF", "#D73027"), 
+        domain = c(0, 1)
       )
     )
-return(heatmap_table)
-  }
+  
+  return(heatmap_table)
+}
 
 a_baumannii_heatmap <- generate_resistance_heatmap(a_baumannii_resistance_prob)
 e_faecium_heatmap <-  generate_resistance_heatmap(e_faecium_resistance_prob)
