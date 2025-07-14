@@ -17,8 +17,9 @@ library(xgboost)
 library(gt) # Required for displaying the heatmap tables
 
 library(nnet) # Required for the multinomial model in the predictor
+data_env <- new.env()
 
-load("vivli_data_compressed.RData")
+load("vivli_data_compressed.RData", envir = data_env)
 
 # --- 2. Check for and Combine Pre-Loaded Data ---
 
@@ -43,15 +44,14 @@ required_cluster_cols <- c(
 
 all_data_list <- lapply(names(required_cluster_cols), function(df_name) {
   
-  if (!exists(df_name, envir = .GlobalEnv)) {
+  if (!exists(df_name, envir = data_env)) {
     
     warning(paste("Data frame '", df_name, "' not found. Skipping."))
     
     return(NULL)
     
   }
-  
-  df <- get(df_name, envir = .GlobalEnv)
+  df <- get(df_name, envir = data_env) 
   
   actual_col_name <- "Cluster"
   
