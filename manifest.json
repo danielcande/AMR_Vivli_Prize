@@ -4279,6 +4279,9 @@
     "vivli_app.RData": {
       "checksum": "4671516f9a20333a4cfa952467293a8d"
     },
+    "vivli_data_compressed.RData": {
+      "checksum": "895f37cb5a0831db061bc2c20250df0f"
+    },
     "vivli_database.sqlite": {
       "checksum": "d4ecce14c36eaba96cb0d85d21cbc497"
     }
