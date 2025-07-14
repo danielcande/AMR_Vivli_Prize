@@ -1174,6 +1174,10 @@ ggplot(
     panel.border = element_rect(colour = "grey80", fill=NA), # Add border to facets
     strip.text = element_text(face = "bold") # Make facet titles bold
   )
+a_baumannii %>%
+  dplyr::select(Super_Region, Gender, Age.Group, Speciality,
+                Source, In...Out.Patient, Year) %>%
+  tbl_summary()
 
 a_baumannii_1 <- a_baumannii %>%
   filter(Cluster== "Pan-Susceptible")
@@ -2137,6 +2141,10 @@ k_pneumoniae_heatmap <- generate_resistance_heatmap(k_pneumoniae_resistance_prob
 p_aeruginosa_heatmap <- generate_resistance_heatmap(p_aeruginosa_resistance_prob)
 s_aureus_heatmap <- generate_resistance_heatmap(s_aureus_resistance_prob)
 
+
+#Testing significance of association
+anova_result <- aov(Probability ~ Class, a_baumannii_resistance_prob)
+summary(anova_result)
 # 
 # #Create dendograms to see cluster distance
 # library(ggdendro)
