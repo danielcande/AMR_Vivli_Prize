@@ -14,9 +14,9 @@ library(countrycode)
 
 library(xgboost)
 
-library(gt) # Required for displaying the heatmap tables
+library(gt) 
 
-library(nnet) # Required for the multinomial model in the predictor
+library(nnet)
 data_env <- new.env()
 
 load("vivli_data_compressed.RData", envir = data_env)
@@ -461,7 +461,7 @@ ui <- fluidPage(
                                       
                                       choices = levels(all_data_final$Super_Region)),
                           
-                          selectInput("pred_age", "Age group:", choices = levels(k_pneumoniae$Age.Group)),
+                          selectInput("pred_age", "Age group:", choices = levels(all_data_final$Age.Group)),
                           
                           
                           
