@@ -556,9 +556,9 @@ a_baumannii_comparison <- compare_lca_models(a_baumannii_abx, f_a_baumannii, max
 #e_coli_comparison <- compare_lca_models(e_coli_abx, f_e_coli, max_classes = 20)
 e_faecium_comparison <- compare_lca_models(e_faecium_abx, f_e_faecium, max_classes = 5) #5 clusters
 e_spp_comparison <- compare_lca_models(e_spp_abx, f_e_spp, max_classes = 5) #5 clusters
-k_pneumoniae_comparison <- compare_lca_models(k_pneumoniae_abx, f_k_pneumoniae, max_classes = 7) #5 clusters
-p_aeruginosa_comparison <- compare_lca_models(p_aeruginosa_abx, f_p_aeruginosa, max_classes = 7)
-s_aureus_comparison <- compare_lca_models(s_aureus_abx, f_s_aureus, max_classes = 7) #5 clusters
+k_pneumoniae_comparison <- compare_lca_models(k_pneumoniae_abx, f_k_pneumoniae, max_classes = 5) #5 clusters
+p_aeruginosa_comparison <- compare_lca_models(p_aeruginosa_abx, f_p_aeruginosa, max_classes = 5)
+s_aureus_comparison <- compare_lca_models(s_aureus_abx, f_s_aureus, max_classes = 5) #5 clusters
 
 
 # Visualise results
@@ -635,7 +635,7 @@ a_baumannii_comparison$results %>%
        x = "Number of Classes", y = "VLMR p-value") +
   theme_minimal()
 
-e_faecium_comparsion$results %>%
+e_faecium_comparison$results %>%
   filter(classes > 1) %>%
   ggplot(aes(x = classes, y = vlmr_p)) +
   geom_line() +
@@ -665,7 +665,7 @@ k_pneumoniae_comparison$results %>%
        x = "Number of Classes", y = "VLMR p-value") +
   theme_minimal()
 
-p_aeruginosa_comparsion$results %>%
+p_aeruginosa_comparison$results %>%
   filter(classes > 1) %>%
   ggplot(aes(x = classes, y = vlmr_p)) +
   geom_line() +
@@ -675,7 +675,7 @@ p_aeruginosa_comparsion$results %>%
        x = "Number of Classes", y = "VLMR p-value") +
   theme_minimal()
 
-s_aureus_comparsion$results %>%
+s_aureus_comparison$results %>%
   filter(classes > 1) %>%
   ggplot(aes(x = classes, y = vlmr_p)) +
   geom_line() +
@@ -694,28 +694,44 @@ s_aureus_model <- s_aureus_comparison$models[[4]]
 
 #Adding class to bug dfs
 a_baumannii <- a_baumannii %>%
-  cbind(as.factor(a_baumannii_model$predclass)) %>%
-  rename(Cluster= `as.factor(a_baumannii_model$predclass)`)
+  cbind(as.factor(a_baumannii_model$predclass))
+
+a_baumannii <- rename(a_baumannii, c("as.factor(a_baumannii_model$predclass)"="Cluster"))
+a_baumannii <- a_baumannii[ , !duplicated(as.list(a_baumannii)) & !grepl("\\.1$", names(a_baumannii))]
+
 
 e_faecium <- e_faecium %>%
-  cbind(as.factor(e_faecium_model$predclass)) %>%
-  rename(Cluster= `as.factor(e_faecium_model$predclass)`)
+  cbind(as.factor(e_faecium_model$predclass)) 
+
+e_faecium <- rename(e_faecium, c("as.factor(e_faecium_model$predclass)"="Cluster"))
+e_faecium <- e_faecium[ , !duplicated(as.list(e_faecium)) & !grepl("\\.1$", names(e_faecium))]
 
 e_spp <- e_spp %>%
-  cbind(as.factor(e_spp_model$predclass)) %>%
-  rename(Cluster= `as.factor(e_spp_model$predclass)`)
+  cbind(as.factor(e_spp_model$predclass)) 
+
+e_spp <- rename(e_spp, c("as.factor(e_spp_model$predclass)"="Cluster"))
+e_spp <- e_spp[ , !duplicated(as.list(e_spp)) & !grepl("\\.1$", names(e_spp))]
 
 k_pneumoniae <- k_pneumoniae %>%
-  cbind(as.factor(k_pneumoniae_model$predclass)) %>%
-  rename(Cluster=`as.factor(k_pneumoniae_model$predclass)`)
+  cbind(as.factor(k_pneumoniae_model$predclass)) 
+
+k_pneumoniae <- rename(k_pneumoniae, c("as.factor(k_pneumoniae_model$predclass)"="Cluster"))
+
+k_pneumoniae <- k_pneumoniae[ , !duplicated(as.list(k_pneumoniae)) & !grepl("\\.1$", names(k_pneumoniae))]
+
 
 p_aeruginosa <- p_aeruginosa %>%
-  cbind(as.factor(p_aeruginosa_model$predclass)) %>%
-  rename(Cluster=`as.factor(p_aeruginosa_model$predclass)`)
+  cbind(as.factor(p_aeruginosa_model$predclass))
+
+p_aeruginosa <- rename(p_aeruginosa, c("as.factor(p_aeruginosa_model$predclass)"="Cluster"))
+p_aeruginosa <- p_aeruginosa[ , !duplicated(as.list(p_aeruginosa)) & !grepl("\\.1$", names(p_aeruginosa))]
+
 
 s_aureus <- s_aureus %>%
-  cbind(as.factor(s_aureus_model$predclass)) %>%
-  rename(Cluster=`as.factor(s_aureus_model$predclass)`)
+  cbind(as.factor(s_aureus_model$predclass))
+
+s_aureus <- rename(s_aureus, c("as.factor(s_aureus_model$predclass)"="Cluster"))
+s_aureus <- s_aureus[ , !duplicated(as.list(s_aureus)) & !grepl("\\.1$", names(s_aureus))]
 
 
 #Changing clusters to factors with descriptive names
@@ -742,21 +758,15 @@ p_aeruginosa$Cluster <- factor(p_aeruginosa$Cluster, levels=c(1,2,3,4,5),
 s_aureus$Cluster <- factor(s_aureus$Cluster, levels=c(1,2,3,4),
                            labels=c("HA-MDR-MRSA","CA-MRSA","Pan-Susceptible MSSA","Penicillin-R MSSA"))
 
-#Adding genetic data
-a_baumannii <- a_baumannii %>%
-  left_join(a_baumannii_genetics, by="Isolate.Id") %>%
-  janitor::remove_empty(which = "cols") %>% #removing columns with only NAs
-  mutate(across(c(SHV, TEM, VEB, PER, GES, KPC, OXA, NDM, IMP, VIM, SPM, GIM),as.factor))
-
 #Running regression with class as output
 
 #Set reference class
 a_baumannii$Cluster <- relevel(a_baumannii$Cluster, ref = "Pan-Susceptible")
-e_faecium$Cluster <- relevel(e_faecium$Cluster, ref = "Pan-susceptible")
-e_spp$Cluster <- relevel(e_spp$Cluster, ref = "Low-level Resistance")
-p_aeruginosa$Cluster <- relevel(p_aeruginosa$Cluster, ref = "Pan-S")
-k_pneumoniae$Cluster <- relevel(k_pneumoniae$Cluster, ref = "Susceptible(Intrinsic Amp-R)")
-s_aureus$Cluster <- relevel(s_aureus$Cluster, ref = "MSSA")
+e_faecium$Cluster <- relevel(e_faecium$Cluster, ref = "Pan-Susceptible")
+e_spp$Cluster <- relevel(e_spp$Cluster, ref = "Susceptible / Wild-Type AmpC")
+p_aeruginosa$Cluster <- relevel(p_aeruginosa$Cluster, ref = "Pan-Susceptible")
+k_pneumoniae$Cluster <- relevel(k_pneumoniae$Cluster, ref = "Susceptible/Wild-Type AmpC")
+s_aureus$Cluster <- relevel(s_aureus$Cluster, ref = "Pan-Susceptible MSSA")
 
 a_baumannii_multinom <- multinom(Cluster ~ Super_Region + Gender + Age.Group + 
                                    Speciality + In...Out.Patient + Year, data = a_baumannii) #Removed genetic vars with <2 lvl
@@ -1174,6 +1184,29 @@ ggplot(
     panel.border = element_rect(colour = "grey80", fill=NA), # Add border to facets
     strip.text = element_text(face = "bold") # Make facet titles bold
   )
+
+
+# 1. Create a character vector of your data frame names
+df_names <- c("a_baumannii", "e_faecium", "e_spp", "p_aeruginosa", "k_pneumoniae", "s_aureus")
+
+# 2. Use lapply() to iterate and apply the function
+cleaned_list <- lapply(df_names, function(df_name) {
+  # Get the data frame from its name
+  df <- get(df_name)
+  
+  # --- FIX ADDED HERE ---
+  # First, ensure all column names are unique
+  colnames(df) <- make.unique(colnames(df))
+  
+  # Now, select all columns EXCEPT those ending in ".1"
+  df %>%
+    dplyr::select(!ends_with(".1"))
+})
+
+# 3. Overwrite the original data frames with the cleaned versions
+names(cleaned_list) <- df_names
+list2env(cleaned_list, .GlobalEnv)
+
 a_baumannii %>%
   dplyr::select(Super_Region, Gender, Age.Group, Speciality,
                 Source, In...Out.Patient, Year) %>%
@@ -1515,7 +1548,7 @@ s_aureus_resistance_prob <- s_aureus_model$probs %>%
   # Reshape data for ggplot
   pivot_longer(cols = -Class, names_to = "Antibiotic", values_to = "Probability")
 
-
+k_pneumoniae_model$probs <- k_pneumoniae_model$probs[1:27]
 k_pneumoniae_resistance_prob <- k_pneumoniae_model$probs %>%
   # Keep only the probability for "Resistant"
   lapply(., function(x) x[, "Resistant"]) %>% 
@@ -2083,18 +2116,22 @@ country_to_region_lookup <- tibble::tribble(
 
 #Plotting resistance grouper by antibiotic class and cluster
 
-generate_resistance_heatmap <- function(resistance_prob){
+generate_resistance_heatmap <- function(resistance_prob) {
+  # --- FIXES APPLIED HERE ---
+  # 1. The input 'resistance_prob' MUST have columns named 'Cluster' and 'Antibiotic_Class'.
+  # 2. Changed 'Class' to 'Cluster' to match the rest of the code.
+  
   # Aggregate probabilities by cluster and antibiotic class
   aggregated_probs <- resistance_prob %>%
-    group_by(Class, Antibiotic_Class) %>%
-    summarise(
+    dplyr::group_by(Class, Antibiotic_Class) %>% # Corrected 'Class' to 'Cluster'
+    dplyr::summarise(
       mean_probs = mean(Probability, na.rm = TRUE),
-      .groups = 'drop' # Recommended to explicitly drop groups
+      .groups = 'drop'
     )
-  
+  print(aggregated_probs)
   # Pivot the data to create the heatmap structure
   class_probs_table <- aggregated_probs %>%
-    pivot_wider(
+    tidyr::pivot_wider(
       names_from = Antibiotic_Class,
       values_from = mean_probs
     )
@@ -2102,30 +2139,21 @@ generate_resistance_heatmap <- function(resistance_prob){
   # Create the gt table for the heatmap
   heatmap_table <- class_probs_table %>%
     gt(rowname_col = "Cluster") %>%
-    
-    # Add a main title and subtitle
     tab_header(
       title = md("**Antibiotic Resistance Profiles by Cluster**"),
       subtitle = "Mean probability of resistance for each antibiotic class"
     ) %>%
-    
-    # Add a spanner header over the antibiotic columns
     tab_spanner(
       label = md("**Antibiotic Class**"),
-      columns = where(is.numeric) # Apply only to numeric columns
+      columns = where(is.numeric)
     ) %>%
-    
-    # Format the numbers as percentages with one decimal place
     fmt_percent(
       columns = where(is.numeric),
       decimals = 1
     ) %>%
-    
     data_color(
       columns = where(is.numeric),
       colors = scales::col_numeric(
-        # This Blue-Yellow-Red palette is effective and accessible.
-        # Low resistance (blue) -> Mid (yellow) -> High resistance (red)
         palette = c("#4575B4", "#FFFFBF", "#D73027"), 
         domain = c(0, 1)
       )
