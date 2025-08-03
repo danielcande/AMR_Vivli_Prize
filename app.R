@@ -100,7 +100,7 @@ gender_choices <- c("All", unique(levels(all_data_final$Gender)))
 message("Data ready. Launching UI.")
 
 # --- 4. Forecasting Function ---
-generate_forecast_data <- function(proportions_data, target_species, target_region, n_forecast_years = 5, n_bootstrap = 100) {
+generate_forecast_data <- function(proportions_data, target_species, target_region, n_forecast_years = 5, n_bootstrap = 20) {
   model_data <- proportions_data %>% dplyr::filter(Species == target_species, Super_Region == target_region)
   feature_data <- model_data %>%
     dplyr::select(Year, Cluster, proportion) %>%

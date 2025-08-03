@@ -5,9 +5,9 @@ account: dsc00
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 15075272
-bundleId: 10712710
+bundleId: 10716410
 url: https://dsc00.shinyapps.io/app_vivli/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: 2025_03_11 atlas_antibiotics.xlsx|forecast_function.R|Vivli + app.RData|Vivli + app2.RData|vivli_database.sqlite
+ignoredFiles: database.R|forecast_function.R|vivli_data_compressed.RData
