@@ -10,6 +10,8 @@ library(gt) # Required for displaying the heatmap tables
 library(nnet) # Required for the multinomial model in the predictor
 
 load("Vivli(corrected).RData")
+# At the top of app.R
+#load(system.file("app/data/Vivli(corrected).RData", package = "vivliAMRapp"))
 
 # --- 2. Check for and Combine Pre-Loaded Data ---
 message("Starting app: Checking for required data objects...")

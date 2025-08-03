@@ -66,7 +66,7 @@ s_aureus <- s_aureus %>%
 
 #Removing columns with >95% missingness
 
-a_baumannii <- a_baumannii %>%
+a_baumannii_removed <- a_baumannii %>%
   dplyr::select(where(~ mean(is.na(.)) < 0.95))
 
 e_faecium <- e_faecium %>%
