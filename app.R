@@ -9,10 +9,9 @@ library(xgboost)
 library(gt) # Required for displaying the heatmap tables
 library(nnet) # Required for the multinomial model in the predictor
 
-load("Vivli_final.RData")
+#load("Vivli_final.RData")
 # At the top of app.R
-#load(system.file("app/data/Vivli(corrected).RData", package = "vivliAMRapp"))
-
+load("/srv/shiny-server/AMR_Vivli_Prize/app_data.RData")
 # --- 2. Check for and Combine Pre-Loaded Data ---
 message("Starting app: Checking for required data objects...")
 required_cluster_cols <- c(
@@ -28,11 +27,11 @@ e_faecium <- e_faecium %>%
   dplyr::filter(Gender != "-")
 
 all_data_list <- lapply(names(required_cluster_cols), function(df_name) {
-  if (!exists(df_name, envir = .GlobalEnv)) {
+  if (!exists(df_name)) {
     warning(paste("Data frame '", df_name, "' not found. Skipping."))
     return(NULL)
   }
-  df <- get(df_name, envir = .GlobalEnv)
+  df <- get(df_name)
   actual_col_name <- "Cluster"
   if (actual_col_name %in% colnames(df)) {
     message(paste("Success: Found and processing", df_name))
