@@ -25,7 +25,8 @@ required_cluster_cols <- c(
 
 # Clean up any bad data before combining
 e_faecium <- e_faecium %>%
-  dplyr::filter(Gender != "-")
+  dplyr::filter(Gender != '-') %>%
+  droplevels()
 
 all_data_list <- lapply(names(required_cluster_cols), function(df_name) {
   if (!exists(df_name, envir = .GlobalEnv)) {
@@ -93,8 +94,8 @@ all_proportions_data <- all_data_processed %>%
 world_map <- ne_countries(scale = "medium", returnclass = "sf") %>% 
   dplyr::select(iso_a3, geometry)
 
-age_choices <- c("All", unique(all_data_final$Age.Group))
-gender_choices <- c("All", unique(all_data_final$Gender))
+age_choices <- c("All", unique(levels(all_data_final$Age.Group)))
+gender_choices <- c("All", unique(levels(all_data_final$Gender)))
 
 
 # --- 4. Save Final Objects ---

@@ -12,91 +12,6 @@ library(nnet) # Required for the multinomial model in the predictor
 # #load("Vivli_final.RData")
 # # At the top of app.R
 load("/srv/shiny-server/AMR_Vivli_Prize/app_data.RData")
-# # --- 2. Check for and Combine Pre-Loaded Data ---
-# message("Starting app: Checking for required data objects...")
-# required_cluster_cols <- c(
-#   "a_baumannii" = "Cluster",
-#   "e_faecium"  = "Cluster",
-#   "e_spp"      = "Cluster",
-#   "s_aureus"   = "Cluster",
-#   "k_pneumoniae" = "Cluster",
-#   "p_aeruginosa" = "Cluster"
-# )
-# 
-# e_faecium <- e_faecium %>% 
-#   dplyr::filter(Gender != "-")
-# 
-# all_data_list <- lapply(names(required_cluster_cols), function(df_name) {
-#   if (!exists(df_name)) {
-#     warning(paste("Data frame '", df_name, "' not found. Skipping."))
-#     return(NULL)
-#   }
-#   df <- get(df_name)
-#   actual_col_name <- "Cluster"
-#   if (actual_col_name %in% colnames(df)) {
-#     message(paste("Success: Found and processing", df_name))
-#     df <- df %>% dplyr::rename(Cluster = !!sym(actual_col_name))
-#     if (!"Species" %in% colnames(df)) {
-#       df$Species <- df_name
-#     }
-#     return(df)
-#   } else {
-#     warning(paste("Cluster column '", actual_col_name, "' not found in '", df_name, "'. Skipping."))
-#     return(NULL)
-#   }
-# })
-# all_data_processed <- bind_rows(all_data_list)
-# if(nrow(all_data_processed) == 0) {
-#   stop("App stopped: No data could be processed. Please check if your data frames are loaded and cluster column names are correct.")
-# }
-# 
-# # --- 3. Data Preparation ---
-# if (!"Super_Region" %in% colnames(all_data_processed)) all_data_processed$Super_Region <- "Unknown Region"
-# if (!"Country" %in% colnames(all_data_processed)) all_data_processed$Country <- "Unknown Country"
-# if (!"Isolate.ID" %in% colnames(all_data_processed)) all_data_processed$Isolate.ID <- 1:nrow(all_data_processed)
-# if (!"Year" %in% colnames(all_data_processed)) all_data_processed$Year <- 2022
-# if (!"Age.Group" %in% colnames(all_data_processed)) all_data_processed$Age.Group <- "Unknown"
-# if (!"Gender" %in% colnames(all_data_processed)) all_data_processed$Gender <- "Unknown"
-# 
-# 
-# world_map <- ne_countries(scale = "medium", returnclass = "sf") %>% dplyr::select(iso_a3, geometry)
-# 
-# # --- MODIFICATION: Added dplyr:: prefixes for robustness ---
-# all_data_processed <- all_data_processed %>% dplyr::mutate(iso_a3 = countrycode(Country, "country.name", "iso3c"))
-# all_proportions_data <- all_data_processed %>%
-#   dplyr::count(Species, Super_Region, Year, Cluster) %>%
-#   dplyr::group_by(Species, Super_Region, Year) %>%
-#   dplyr::mutate(proportion = n / sum(n)) %>%
-#   dplyr::ungroup()
-# 
-# antibiotic_classes_lookup <- c(
-#   "Amikacin" = "Aminoglycoside", "Amoxycillin.clavulanate" = "Penicillin + Beta-lactamase inhibitor", "Ampicillin" = "Penicillin", "Cefepime" = "Cephalosporin (4th gen)", "Ceftazidime" = "Cephalosporin (3rd gen)",
-#   "Imipenem" = "Carbapenem", "Levofloxacin" = "Fluoroquinolone", "Meropenem" = "Carbapenem", "Piperacillin.tazobactam" = "Penicillin + Beta-lactamase inhibitor",
-#   "Tigecycline" = "Glycylcycline", "Ampicillin.sulbactam" = "Penicillin + Beta-lactamase inhibitor", "Aztreonam" = "Monobactam",
-#   "Cefixime" = "Cephalosporin (3rd gen)", "Ceftaroline" = "Cephalosporin (5th gen)", "Ceftazidime.avibactam" = "Cephalosporin + Beta-lactamase inhibitor",
-#   "Ciprofloxacin" = "Fluoroquinolone", "Colistin" = "Polymyxin", "Gentamicin" = "Aminoglycoside", "Trimethoprim.sulfa" = "Sulfonamide combination",
-#   "Ceftolozane.tazobactam" = "Cephalosporin + Beta-lactamase inhibitor", "Meropenem.vaborbactam" = "Carbapenem + Beta-lactamase inhibitor",
-#   "Cefpodoxime" = "Cephalosporin (3rd gen)", "Ceftibuten" = "Cephalosporin (3rd gen)",
-#   "Erythromycin" = "Macrolide", "Linezolid" = "Oxazolidinone", "Minocycline" = "Tetracycline",
-#   "Vancomycin" = "Glycopeptide", "Daptomycin" = "Lipopeptide", "Quinupristin.dalfopristin" = "Streptogramin",
-#   "Teicoplanin" = "Glycopeptide", "Oxacillin" = "Penicillin", "Clindamycin" = "Lincosamide",
-#   "Moxifloxacin" = "Fluoroquinolone", "Ceftriaxone" = "Cephalosporin (3rd gen)", "Doripenem" = "Carbapenem",
-#   "Ertapenem" = "Carbapenem"
-# )
-# antibiotic_classes_lookup <- antibiotic_classes_lookup[!duplicated(names(antibiotic_classes_lookup))]
-# antibiotic_classes_df <- tibble(Antibiotic = names(antibiotic_classes_lookup), Antibiotic_Class = unname(antibiotic_classes_lookup))
-# existing_antibiotics <- intersect(names(antibiotic_classes_lookup), colnames(all_data_processed))
-# 
-# # --- MODIFICATION: Added dplyr:: prefixes for robustness ---
-# all_data_final <- all_data_processed %>%
-#   tidyr::pivot_longer(cols = all_of(existing_antibiotics), names_to = "Antibiotic", values_to = "Resistance") %>%
-#   dplyr::left_join(antibiotic_classes_df, by = "Antibiotic") %>%
-#   dplyr::filter(!is.na(Resistance), !is.na(Cluster))
-# 
-# all_data_final$Antibiotic_Class[is.na(all_data_final$Antibiotic_Class)] <- "Unknown Class"
-# 
-# age_choices <- c("All", unique(levels(all_data_final$Age.Group)))
-# gender_choices <- c("All", unique(levels(all_data_final$Gender)))
 
 message("Data ready. Launching UI.")
 
@@ -163,109 +78,396 @@ generate_forecast_data <- function(proportions_data, target_species, target_regi
   return(list(forecast_summary = full_forecast_summary, historical_data = plot_data_historical, log = "Forecast generation complete."))
 }
 
-# --- 5. Shiny UI (User Interface) ---
-# (UI code remains unchanged)
-ui <- fluidPage( 
-  theme = shinytheme("cosmo"), 
-  titlePanel("AMR Pattern Explorer"), 
-  navbarPage("AMR Dashboard", 
-             tabPanel("Global Overview", 
-                      fluidRow(column(12, wellPanel(h4("Shared Map Filters"), uiOutput("year_slider_global")))), 
-                      fluidRow( 
-                        column(6, wellPanel(h4("Global Cluster Map Filters"), 
-                                            selectInput("species_global_cluster", "Select Species:", choices = unique(all_data_final$Species)), 
-                                            selectInput("age_global_cluster", "Select Age Group:", choices = age_choices), 
-                                            radioButtons("gender_global_cluster", "Select Gender:", choices = gender_choices, inline = TRUE) 
-                        )), 
-                        column(6, wellPanel(h4("Global Resistance Map Filters"), 
-                                            selectInput("species_global_res", "Select Species:", choices = unique(all_data_final$Species)), 
-                                            selectInput("analysis_level_global_res", "Analyse by:", choices = c("Antibiotic", "Antibiotic Class")), 
-                                            uiOutput("drug_select_global_res"), 
-                                            selectInput("age_global_res", "Select Age Group:", choices = age_choices), 
-                                            radioButtons("gender_global_res", "Select Gender:", choices = gender_choices, inline = TRUE) 
-                        )) 
-                      ), 
-                      fluidRow(column(6, plotOutput("cluster_map_global", height = "600px")), column(6, plotOutput("resistance_map_global", height = "600px"))) 
+# --- 5. Enhanced Shiny UI with Medical Theme ---
+ui <- fluidPage(
+  # Custom CSS for medical/scientific theme
+  tags$head(
+    tags$style(HTML("
+      /* Import medical-friendly fonts */
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      
+      /* Global body styling */
+      body {
+        font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); /* Darker, more professional gradient */
+        min-height: 100vh;
+      }
+      
+      /* --- FIX START --- */
+      /* Make the main fluidPage container transparent */
+      .container-fluid {
+        background: transparent !important;
+        box-shadow: none !important;
+        padding-top: 0;
+      }
+      
+      /* Style the CONTENT of the tabs as the white card */
+      .tab-content > .tab-pane {
+          background: rgba(255, 255, 255, 0.98);
+          padding: 20px;
+          margin-top: -20px; /* Pulls content up to meet the navbar */
+          border-radius: 0 0 15px 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Make the main navbar transparent to show the body background */
+      .navbar-default {
+        background-color: transparent;
+        border: none;
+      }
+      
+      /* Change the default link color to white for legibility */
+      .navbar-default .navbar-nav > li > a {
+        color: white;
+      }
+      /* --- FIX END --- */
+      
+      /* Title styling */
+      .navbar-brand {
+        font-weight: 700 !important;
+        font-size: 1.8rem !important;
+        color: #2c3e50 !important;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      /* Navigation tabs */
+      .navbar-nav .nav-link {
+        font-weight: 500;
+        padding: 12px 20px !important;
+        border-radius: 8px;
+        margin: 0 3px;
+        transition: all 0.3s ease;
+      }
+      
+      .navbar-nav .nav-link:hover {
+        background: linear-gradient(45deg, #1abc9c, #16a085); /* Teal hover */
+        color: white !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(26, 188, 156, 0.3);
+      }
+      
+      .navbar-nav .nav-link.active, .navbar-default .navbar-nav > .active > a {
+        background: linear-gradient(45deg, #3498db, #2980b9) !important; /* Blue active */
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+      }
+      
+      /* Well panels - medical card style */
+      .well {
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+        padding: 20px;
+        transition: all 0.3s ease;
+      }
+      
+      .well:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+      }
+      
+      /* Headers */
+      h4 {
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 8px;
+      }
+      
+      /* Buttons */
+      .btn-primary {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+      }
+      
+      .btn-primary:hover {
+        background: linear-gradient(45deg, #2980b9, #3498db);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+      }
+      
+      .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+      }
+      
+      /* Select inputs and controls */
+      .form-control, .selectize-input {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+      }
+      
+      .form-control:focus, .selectize-input.focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+      }
+      
+      /* Slider styling */
+      .irs-bar {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+      }
+      
+      .irs-handle {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        border-color: #2980b9;
+      }
+      
+      /* Plot containers */
+      .shiny-plot-output {
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      /* Guide and Glossary styling */
+      .guide-section {
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        border-left: 4px solid #3498db;
+        padding: 20px;
+        margin: 15px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      
+      /* Verbatim output (logs) */
+      pre {
+        background: #2c3e50;
+        color: #ecf0f1;
+        border-radius: 8px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+      }
+    "))
+  ),
+  
+  # Title Panel
+  div(
+    style = "text-align: center; padding: 20px 0; background: transparent; margin: 0; color: white;",
+    h1("🧬 GUARDIAN", 
+       style = "font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3); margin: 0;"),
+    p("Global Understanding and Response Dashboard for Antimicrobial Resistance Intelligence and Navigation", 
+      style = "font-size: 1.1rem; margin: 5px 0 0 0; font-weight: 300;")
+  ),
+  
+  navbarPage(
+    title = "", # Empty since we have custom title above
+    theme = shinytheme("flatly"),
+    
+    tabPanel("🌍 Global Overview", 
+             fluidRow(
+               column(12, 
+                      div(class = "well",
+                          #style = "background: linear-gradient(135deg, #74b9ff, #0984e3);",
+                          h4("🗺️ Shared Map Filters", style = "color: white; border-color: white;"), 
+                          uiOutput("year_slider_global")
+                      )
+               )
              ), 
-             
-             tabPanel("Resistance Profiles", 
-                      sidebarLayout( 
-                        sidebarPanel( 
-                          h4("Profile Selection"), 
-                          selectInput("species_heatmap", "Select Species to View Profile:", 
-                                      choices = c("A. baumannii" = "a_baumannii", 
-                                                  "E. faecium" = "e_faecium", 
-                                                  "E. spp" = "e_spp", 
-                                                  "K. pneumoniae" = "k_pneumoniae", 
-                                                  "P. aeruginosa" = "p_aeruginosa", 
-                                                  "S. aureus" = "s_aureus")) 
-                        ), 
-                        mainPanel( 
-                          gt_output(outputId = "resistance_heatmap_display") 
-                        ) 
-                      ) 
+             fluidRow( 
+               column(6, 
+                      div(class = "well",
+                          h4("🦠 Global Cluster Map Filters"), 
+                          selectInput("species_global_cluster", "Select Species:", choices = unique(all_data_final$Species)), 
+                          selectInput("age_global_cluster", "Select Age Group:", choices = age_choices), 
+                          radioButtons("gender_global_cluster", "Select Gender:", choices = gender_choices, inline = TRUE) 
+                      )
+               ), 
+               column(6, 
+                      div(class = "well",
+                          h4("💊 Global Resistance Map Filters"), 
+                          selectInput("species_global_res", "Select Species:", choices = unique(all_data_final$Species)), 
+                          selectInput("analysis_level_global_res", "Analyse by:", choices = c("Antibiotic", "Antibiotic Class")), 
+                          uiOutput("drug_select_global_res"), 
+                          selectInput("age_global_res", "Select Age Group:", choices = age_choices), 
+                          radioButtons("gender_global_res", "Select Gender:", choices = gender_choices, inline = TRUE) 
+                      )
+               ) 
              ), 
-             tabPanel("Phenotype Resistance Trends", 
-                      sidebarLayout( 
-                        sidebarPanel(h4("Filter Options"), width = 3, 
-                                     selectInput("species_pheno", "1. Select Species:", choices = unique(all_data_final$Species)), 
-                                     selectInput("super_region_pheno", "2. Select Region:", choices = c("World", unique(levels(all_data_final$Super_Region)))), 
-                                     uiOutput("country_select_ui_pheno"), 
-                                     selectInput("age_pheno", "4. Select Age Group:", choices = age_choices), 
-                                     radioButtons("gender_pheno", "5. Select Gender:", choices = gender_choices, inline = TRUE), 
-                                     uiOutput("year_slider_ui_pheno")), 
-                        mainPanel(plotOutput("phenotype_plot", height = "600px")) 
-                      ) 
-             ), 
-             tabPanel("Forecast Tool", 
-                      sidebarLayout( 
-                        sidebarPanel(h4("Forecast Model Controls"), width = 3, 
-                                     selectInput("species_forecast", "1. Select Species:", choices = unique(all_proportions_data$Species)), 
-                                     selectInput("region_forecast", "2. Select Super Region:", choices = unique(all_proportions_data$Super_Region)), 
-                                     actionButton("run_forecast_btn", "Run Forecast", icon = icon("chart-line")), 
-                                     hr(), 
-                                     uiOutput("cluster_select_ui_forecast")), 
-                        mainPanel(plotOutput("forecast_plot", height = "600px"), 
-                                  h4("Model Log"), 
-                                  verbatimTextOutput("forecast_log")) 
-                      ) 
-             ), 
-             tabPanel("Patient Risk Predictor", 
-                      sidebarLayout( 
-                        sidebarPanel( 
-                          h4("Patient & Sample Details"), 
-                          selectInput("pathogen_input", "Select Species of Suspected Infection:", 
-                                      choices = c("A. baumannii" = "a_baumannii", 
-                                                  "E. faecium" = "e_faecium", 
-                                                  "E. spp" = "e_spp", 
-                                                  "K. pneumoniae" = "k_pneumoniae", 
-                                                  "P. aeruginosa" = "p_aeruginosa", 
-                                                  "S. aureus" = "s_aureus")), 
-                          p("Enter the details below to predict the resistance profile."), 
-                          
-                          radioButtons("pred_sexe", "Gender:", choices = c("Male", "Female"), inline = TRUE), 
-                          
-                          selectInput("pred_dept", "Department:", 
-                                      choices = c("Nursing Home / Rehab", "Pediatric ICU", "Medicine General", 
-                                                  "Surgery General", "Pediatric General", "Clinic / Office","Emergency Room", 
-                                                  "Medicine ICU","None Given","Surgery ICU","General Unspecified","ICU Other")), 
-                          
-                          selectInput("pred_region", "Region:", 
-                                      choices = levels(all_data_final$Super_Region)), 
-                          selectInput("pred_age", "Age group:", choices = levels(k_pneumoniae$Age.Group)), 
-                          
-                          actionButton("predict_button", "Predict Profile", class = "btn-primary") 
-                        ), 
-                        mainPanel( 
-                          h4("Predicted Probabilities"), 
-                          p("The plot below shows the predicted probability of this isolate belonging to each resistance cluster."), 
-                          plotOutput("prediction_plot") 
-                        ) 
-                      ) 
+             fluidRow(
+               column(6, plotOutput("cluster_map_global", height = "600px")), 
+               column(6, plotOutput("resistance_map_global", height = "600px"))
              ) 
+    ), 
+    
+    tabPanel("🔬 Resistance Profiles", 
+             sidebarLayout( 
+               sidebarPanel( 
+                 div(class = "well",
+                     h4("🧪 Profile Selection"), 
+                     selectInput("species_heatmap", "Select Species to View Profile:", 
+                                 choices = c("A. baumannii" = "a_baumannii", 
+                                             "E. faecium" = "e_faecium", 
+                                             "E. spp" = "e_spp", 
+                                             "K. pneumoniae" = "k_pneumoniae", 
+                                             "P. aeruginosa" = "p_aeruginosa", 
+                                             "S. aureus" = "s_aureus"))
+                 )
+               ), 
+               mainPanel( 
+                 div(style = "padding: 20px;",
+                     gt_output(outputId = "resistance_heatmap_display")
+                 )
+               ) 
+             ) 
+    ), 
+    
+    tabPanel("📈 Phenotype Resistance Trends", 
+             sidebarLayout( 
+               sidebarPanel(
+                 div(class = "well",
+                     h4("⚙️ Filter Options"), 
+                     selectInput("species_pheno", "1. Select Species:", choices = unique(all_data_final$Species)), 
+                     selectInput("super_region_pheno", "2. Select Region:", choices = c("World", unique(levels(all_data_final$Super_Region)))), 
+                     uiOutput("country_select_ui_pheno"), 
+                     selectInput("age_pheno", "4. Select Age Group:", choices = age_choices), 
+                     radioButtons("gender_pheno", "5. Select Gender:", choices = gender_choices, inline = TRUE), 
+                     uiOutput("year_slider_ui_pheno")
+                 ),
+                 width = 3
+               ), 
+               mainPanel(plotOutput("phenotype_plot", height = "600px")) 
+             ) 
+    ), 
+    
+    tabPanel("🔮 Forecast Tool", 
+             sidebarLayout( 
+               sidebarPanel(
+                 div(class = "well",
+                     h4("🤖 Forecast Model Controls"), 
+                     selectInput("species_forecast", "1. Select Species:", choices = unique(all_proportions_data$Species)), 
+                     selectInput("region_forecast", "2. Select Super Region:", choices = unique(all_proportions_data$Super_Region)), 
+                     actionButton("run_forecast_btn", "🚀 Run Forecast", icon = icon("chart-line"), class = "btn-primary"),
+                     hr(), 
+                     uiOutput("cluster_select_ui_forecast")
+                 ),
+                 width = 3
+               ), 
+               mainPanel(
+                 plotOutput("forecast_plot", height = "600px"), 
+                 div(class = "well",
+                     h4("📋 Model Log"), 
+                     verbatimTextOutput("forecast_log")
+                 )
+               ) 
+             ) 
+    ), 
+    
+    tabPanel("🏥 Patient Risk Predictor", 
+             sidebarLayout( 
+               sidebarPanel( 
+                 div(class = "well",
+                     h4("👤 Patient & Sample Details"), 
+                     selectInput("pathogen_input", "Select Species of Suspected Infection:", 
+                                 choices = c("A. baumannii" = "a_baumannii", 
+                                             "E. faecium" = "e_faecium", 
+                                             "E. spp" = "e_spp", 
+                                             "K. pneumoniae" = "k_pneumoniae", 
+                                             "P. aeruginosa" = "p_aeruginosa", 
+                                             "S. aureus" = "s_aureus")), 
+                     p("Enter the details below to predict the resistance profile.", style = "color: #7f8c8d;"), 
+                     
+                     radioButtons("pred_sexe", "👥 Gender:", choices = c("Male", "Female"), inline = TRUE), 
+                     
+                     selectInput("pred_dept", "🏢 Department:", 
+                                 choices = c("Nursing Home / Rehab", "Pediatric ICU", "Medicine General", 
+                                             "Surgery General", "Pediatric General", "Clinic / Office","Emergency Room", 
+                                             "Medicine ICU","None Given","Surgery ICU","General Unspecified","ICU Other")), 
+                     
+                     selectInput("pred_region", "🌐 Region:", 
+                                 choices = levels(all_data_final$Super_Region)), 
+                     selectInput("pred_age", "📅 Age group:", choices = levels(k_pneumoniae$Age.Group)), 
+                     
+                     actionButton("predict_button", "🔍 Predict Profile", class = "btn-primary")
+                 )
+               ), 
+               mainPanel( 
+                 div(class = "well",
+                     h4("📊 Predicted Probabilities"), 
+                     p("The plot below shows the predicted probability of this isolate belonging to each resistance cluster.", 
+                       style = "color: #7f8c8d;"), 
+                     plotOutput("prediction_plot")
+                 )
+               ) 
+             ) 
+    ),
+    
+    tabPanel("📖 How-To Guide",
+             fluidPage(
+               div(class = "well",
+                   h2("📚 How to Use This Dashboard", style = "text-align: center; color: #2c3e50;"),
+                   br()
+               ),
+               
+               # --- Section for Clinicians ---
+               div(class = "guide-section",
+                   h4("🧑⚕️ For the Clinician at the Bedside"),
+                   p("A 14-year-old boy arrives at an Emergency Room in New Delhi with a suspected soft tissue infection. The doctor needs to prescribe antibiotics now, days before lab results will be ready."),
+                   p("The go-to choice is a broad-spectrum antibiotic, but the doctor first consults the ", strong("Patient Risk Predictor"), " tab. By entering the patient's details, the doctor sees a high probability that the infection belongs to an extensively drug-resistant (XDR) cluster."),
+                   p(strong("Outcome:"), " The doctor is empowered to avoid a first-line treatment that would likely fail, instead exploring more targeted therapies and averting the risk of worsening the patient's condition.")
+               ),
+               
+               # --- Section for Public Health Officers ---
+               div(class = "guide-section",
+                   h4("🔬 For the Public Health Surveillance Officer"),
+                   p("An officer is alerted to a rumoured spike in carbapenem resistance in Northern England."),
+                   p("They open the ", strong("Global Overview"), " tab and filter for the UK. They see that the dominant cluster in that region is indeed a known carbapenem-resistant type. Curious, they switch to the ", strong("Phenotype Resistance Trends"), " tab. Using the latest data, they confirm not only that carbapenem resistance is rising, but that this specific cluster has grown alongside it. A quick look at the ", strong("Forecast Tool"), " shows this trend is predicted to continue, highlighting the urgency of the issue."),
+                   p(strong("Outcome:"), " The officer can quickly validate a public health concern, understand its scale, and use the forecast to inform regional infection control strategies and public health alerts.")
+               ),
+               
+               # --- Section for Researchers ---
+               div(class = "guide-section",
+                   h4("👩🔬 For the Clinical Researcher"),
+                   p("A researcher is planning their next grant proposal on Acinetobacter baumannii."),
+                   p("They use the ", strong("Forecast Tool"), " to identify which resistance clusters are predicted to become most prevalent over the next five years. They notice a specific XDR cluster is expected to rise sharply. Intrigued, they examine its profile in the ", strong("Resistance Profiles"), " tab and see an unusual pattern of resistance to aminoglycosides."),
+                   p(strong("Outcome:"), " The researcher has identified a high-impact, emerging resistance pattern to focus their research on, strengthening their grant application with data-driven evidence and ensuring their work addresses a future clinical need.")
+               )
+             )
+    ),
+    
+    tabPanel("🧬 Glossary",
+             fluidPage(
+               div(class = "well",
+                   h2("🔬 Glossary of AMR Terms", style = "text-align: center; color: #2c3e50;"),
+                   br()
+               ),
+               
+               # --- Resistance Categories ---
+               div(class = "guide-section",
+                   h4("🛡️ Resistance Categories"),
+                   p(strong("MDR (Multi-Drug Resistant):"), " Bacteria that are resistant to at least one antibiotic in three or more different classes."),
+                   p(strong("XDR (Extensively Drug-Resistant):"), " Bacteria that are resistant to all but two or fewer antibiotic classes, making them extremely difficult to treat.")
+               ),
+               
+               # --- Specific Resistance Types ---
+               div(class = "guide-section",
+                   h4("🧪 Specific Resistance Types"),
+                   p(strong("CRAB (Carbapenem-Resistant Acinetobacter baumannii):"), " A strain of Acinetobacter baumannii that is resistant to carbapenems, a class of last-resort antibiotics."),
+                   p(strong("CRE (Carbapenem-Resistant Enterobacterales):"), " A family of bacteria (like E. coli and Klebsiella) that have developed resistance to carbapenem antibiotics."),
+                   p(strong("CRP (Carbapenem-Resistant Pseudomonas):"), " A strain of Pseudomonas aeruginosa resistant to carbapenems, often found in hospital settings."),
+                   p(strong("ESBL (Extended-Spectrum Beta-Lactamase):"), " Enzymes produced by some bacteria that allow them to break down and resist many common antibiotics, including penicillins and cephalosporins."),
+                   p(strong("MRSA (Methicillin-Resistant Staphylococcus aureus):"), " A strain of Staphylococcus aureus that is resistant to methicillin and other related antibiotics, making it a common and challenging hospital-acquired infection.")
+               ),
+               
+               # --- Infection Acquisition Types ---
+               div(class = "guide-section",
+                   h4("🏥 Infection Acquisition"),
+                   p(strong("HA (Hospital-Acquired):"), " An infection that is contracted within a hospital or other healthcare facility."),
+                   p(strong("CA (Community-Acquired):"), " An infection contracted by a person outside of a healthcare setting.")
+               )
+             )
+    )
   ) 
 ) 
-
 
 # --- 6. Shiny Server (Backend Logic) ---
 server <- function(input, output, session) {
