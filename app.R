@@ -9,7 +9,7 @@ library(xgboost)
 library(gt) # Required for displaying the heatmap tables
 library(nnet) # Required for the multinomial model in the predictor
 
-load("Vivli(corrected).RData")
+load("vivli_data_compressed.RData")
 # At the top of app.R
 #load(system.file("app/data/Vivli(corrected).RData", package = "vivliAMRapp"))
 
