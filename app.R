@@ -6,8 +6,9 @@ library(sf)
 library(rnaturalearth)
 library(countrycode)
 library(xgboost)
-library(gt) # Required for displaying the heatmap tables
-library(nnet) # Required for the multinomial model in the predictor
+library(gt) 
+library(nnet) 
+library(DT)
 # 
 # #load("Vivli_final.RData")
 # # At the top of app.R
@@ -103,11 +104,11 @@ ui <- fluidPage(
       
       /* Style the CONTENT of the tabs as the white card */
       .tab-content > .tab-pane {
-          background: rgba(255, 255, 255, 0.98);
-          padding: 20px;
-          margin-top: -20px; /* Pulls content up to meet the navbar */
-          border-radius: 0 0 15px 15px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+         background: rgba(255, 255, 255, 0.98);
+         padding: 20px;
+         margin-top: -20px; /* Pulls content up to meet the navbar */
+         border-radius: 0 0 15px 15px;
+         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
       }
 
       /* Make the main navbar transparent to show the body background */
@@ -247,6 +248,23 @@ ui <- fluidPage(
         font-family: 'Consolas', 'Monaco', monospace;
         box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
       }
+
+      /* --- NEW --- Disclaimer Box styling */
+      .disclaimer-box {
+          background-color: #f8d7da; /* Light red */
+          color: #721c24; /* Dark red text */
+          border: 1px solid #f5c6cb;
+          border-radius: 8px;
+          padding: 15px;
+          margin: 15px 0;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      .disclaimer-box h4 {
+          color: #721c24 !important; /* Override default h4 color */
+          border-bottom: none; /* Remove blue line */
+          margin-top: 0;
+      }
+      /* --- END NEW --- */
     "))
   ),
   
@@ -262,6 +280,57 @@ ui <- fluidPage(
   navbarPage(
     title = "", # Empty since we have custom title above
     theme = shinytheme("flatly"),
+    # --- NEW WELCOME TAB ---
+    # --- WELCOME TAB ---
+    tabPanel("👋 Welcome",
+             fluidPage(
+               div(class = "well",
+                   h2("Welcome to the GUARDIAN Dashboard", style = "text-align: center; color: #2c3e50;"),
+                   br()
+               ),
+               
+               div(class = "guide-section",
+                   h4("About This Project"),
+                   p("This dashboard provides an interactive platform for exploring global antimicrobial resistance (AMR) trends. It is designed to help clinicians, public health officials, and researchers visualise complex surveillance data."),
+                   p("This work was made possible by ", strong("Wellcome Trust"), " with access to critical data from ", strong("Pfizer"), " via the ", strong("Vivli"), " data sharing platform. We are grateful for their commitment to advancing AMR research.")
+               ),
+               
+               # --- NEW SECTION ---
+               div(class = "guide-section",
+                   h4("🗺️ Navigating the Dashboard"),
+                   p(strong("Global Overview:"), " Explore interactive world maps showing the prevalence of different resistance clusters and specific antibiotic resistance rates."),
+                   p(strong("Resistance Profiles:"), " View detailed heatmaps that show the specific antibiotic susceptibility patterns for each identified resistance cluster."),
+                   p(strong("Phenotype Resistance Trends:"), " Track how resistance to individual antibiotics has changed over time in different regions."),
+                   p(strong("Forecast Tool:"), " Use a predictive model to forecast the prevalence of resistance clusters in the coming years."),
+                   p(strong("Patient Risk Predictor:"), " Input patient details to predict the probability of their infection belonging to a specific resistance cluster."),
+                   p(strong("How-To Guide:"), " Read case studies demonstrating how different users can leverage the dashboard's features."),
+                   p(strong("Glossary:"), " A quick reference for the AMR-related acronyms and terms used throughout the dashboard.")
+               ),
+               # --- END NEW ---
+               
+               div(class = "guide-section",
+                   h4("The ATLAS Dataset"),
+                   p("The analyses are based on the Pfizer ", strong("ATLAS (Antimicrobial Testing Leadership and Surveillance)"), " database, a comprehensive global program collecting bacterial isolates. To prepare the data, we performed several cleaning steps:"),
+                   tags$ul(
+                     style = "margin-left: 20px;",
+                     tags$li("Standardised antibiotic and species names."),
+                     tags$li("Removed isolates with incomplete susceptibility profiles or critical missing metadata.")
+                   )
+               ),
+               
+               div(class = "guide-section",
+                   h4("Important Considerations & Biases"),
+                   p("Users should be aware of the inherent limitations of this dataset:"),
+                   tags$ul(
+                     style = "margin-left: 20px;",
+                     tags$li(strong("Surveillance Bias:"), " Data is primarily from hospital settings and may not fully represent community-acquired infections."),
+                     tags$li(strong("Geographic Bias:"), " Data collection is not uniform across all countries. Some regions are more densely sampled than others."),
+                     tags$li(strong("Temporal Gaps:"), " Data availability may vary from year to year for specific locations.")
+                   ),
+                   p("This tool is intended for surveillance and research purposes only.")
+               )
+             )
+    ),
     
     tabPanel("🌍 Global Overview", 
              fluidRow(
@@ -277,7 +346,13 @@ ui <- fluidPage(
                column(6, 
                       div(class = "well",
                           h4("🦠 Global Cluster Map Filters"), 
-                          selectInput("species_global_cluster", "Select Species:", choices = unique(all_data_final$Species)), 
+                          selectInput("species_global_cluster", "Select Species:", 
+                                      choices = c("A. baumannii" = "a_baumannii", 
+                                                  "E. faecium" = "e_faecium", 
+                                                  "E. spp" = "e_spp", 
+                                                  "K. pneumoniae" = "k_pneumoniae", 
+                                                  "P. aeruginosa" = "p_aeruginosa", 
+                                                  "S. aureus" = "s_aureus")), 
                           selectInput("age_global_cluster", "Select Age Group:", choices = age_choices), 
                           radioButtons("gender_global_cluster", "Select Gender:", choices = gender_choices, inline = TRUE) 
                       )
@@ -285,7 +360,13 @@ ui <- fluidPage(
                column(6, 
                       div(class = "well",
                           h4("💊 Global Resistance Map Filters"), 
-                          selectInput("species_global_res", "Select Species:", choices = unique(all_data_final$Species)), 
+                          selectInput("species_global_res", "Select Species:", 
+                                      choices = c("A. baumannii" = "a_baumannii", 
+                                                  "E. faecium" = "e_faecium", 
+                                                  "E. spp" = "e_spp", 
+                                                  "K. pneumoniae" = "k_pneumoniae", 
+                                                  "P. aeruginosa" = "p_aeruginosa", 
+                                                  "S. aureus" = "s_aureus")), 
                           selectInput("analysis_level_global_res", "Analyse by:", choices = c("Antibiotic", "Antibiotic Class")), 
                           uiOutput("drug_select_global_res"), 
                           selectInput("age_global_res", "Select Age Group:", choices = age_choices), 
@@ -304,29 +385,46 @@ ui <- fluidPage(
                sidebarPanel( 
                  div(class = "well",
                      h4("🧪 Profile Selection"), 
+                     
+                     # This selectInput now includes a 'selected' argument to ensure
+                     # a heatmap loads by default when the tab is opened.
                      selectInput("species_heatmap", "Select Species to View Profile:", 
                                  choices = c("A. baumannii" = "a_baumannii", 
                                              "E. faecium" = "e_faecium", 
                                              "E. spp" = "e_spp", 
                                              "K. pneumoniae" = "k_pneumoniae", 
                                              "P. aeruginosa" = "p_aeruginosa", 
-                                             "S. aureus" = "s_aureus"))
+                                             "S. aureus" = "s_aureus"),
+                                 selected = "a_baumannii"  # Default value
+                     )
                  )
                ), 
+               
                mainPanel( 
                  div(style = "padding: 20px;",
-                     gt_output(outputId = "resistance_heatmap_display")
+                     # Title and instructions for the new interactive table
+                     h4("Resistance Prevalence by Class and Cluster"),
+                     p("Click on any prevalence value to see a detailed breakdown by antibiotic.", style = "color: #555;"),
+                     
+                     # The DTOutput to display the interactive heatmap
+                     DTOutput(outputId = "resistance_heatmap_display")
                  )
                ) 
              ) 
-    ), 
+    ),
     
     tabPanel("📈 Phenotype Resistance Trends", 
              sidebarLayout( 
                sidebarPanel(
                  div(class = "well",
                      h4("⚙️ Filter Options"), 
-                     selectInput("species_pheno", "1. Select Species:", choices = unique(all_data_final$Species)), 
+                     selectInput("species_pheno", "1. Select Species:", 
+                                 choices = c("A. baumannii" = "a_baumannii", 
+                                             "E. faecium" = "e_faecium", 
+                                             "E. spp" = "e_spp", 
+                                             "K. pneumoniae" = "k_pneumoniae", 
+                                             "P. aeruginosa" = "p_aeruginosa", 
+                                             "S. aureus" = "s_aureus")), 
                      selectInput("super_region_pheno", "2. Select Region:", choices = c("World", unique(levels(all_data_final$Super_Region)))), 
                      uiOutput("country_select_ui_pheno"), 
                      selectInput("age_pheno", "4. Select Age Group:", choices = age_choices), 
@@ -344,7 +442,13 @@ ui <- fluidPage(
                sidebarPanel(
                  div(class = "well",
                      h4("🤖 Forecast Model Controls"), 
-                     selectInput("species_forecast", "1. Select Species:", choices = unique(all_proportions_data$Species)), 
+                     selectInput("species_forecast", "1. Select Species:", 
+                                 choices = c("A. baumannii" = "a_baumannii", 
+                                             "E. faecium" = "e_faecium", 
+                                             "E. spp" = "e_spp", 
+                                             "K. pneumoniae" = "k_pneumoniae", 
+                                             "P. aeruginosa" = "p_aeruginosa", 
+                                             "S. aureus" = "s_aureus")), 
                      selectInput("region_forecast", "2. Select Super Region:", choices = unique(all_proportions_data$Super_Region)), 
                      actionButton("run_forecast_btn", "🚀 Run Forecast", icon = icon("chart-line"), class = "btn-primary"),
                      hr(), 
@@ -408,12 +512,26 @@ ui <- fluidPage(
                    br()
                ),
                
+               # --- NEW --- Disclaimer Box
+               div(class = "disclaimer-box",
+                   h4("⚠️ Disclaimer"),
+                   p("This dashboard demonstrates a novel analytical approach using available surveillance data. For clinical decision support, implementation would require:"),
+                   tags$ol(
+                     style = "margin-left: 20px;", # Indent the list
+                     tags$li("More representative local/regional datasets,"),
+                     tags$li("Integration with clinical context including suspected infection aetiology, and"),
+                     tags$li("Validation against patient outcomes.")
+                   ),
+                   p(strong("The methodology shown here provides a framework for such clinical applications."))
+               ),
+               # --- END NEW ---
+               
                # --- Section for Clinicians ---
                div(class = "guide-section",
                    h4("🧑⚕️ For the Clinician at the Bedside"),
                    p("A 14-year-old boy arrives at an Emergency Room in New Delhi with a suspected soft tissue infection. The doctor needs to prescribe antibiotics now, days before lab results will be ready."),
                    p("The go-to choice is a broad-spectrum antibiotic, but the doctor first consults the ", strong("Patient Risk Predictor"), " tab. By entering the patient's details, the doctor sees a high probability that the infection belongs to an extensively drug-resistant (XDR) cluster."),
-                   p(strong("Outcome:"), " The doctor is empowered to avoid a first-line treatment that would likely fail, instead exploring more targeted therapies and averting the risk of worsening the patient's condition.")
+                   p(strong("Outcome:"), " The doctor is provided with a clinical support tool that can help to avoid a first-line treatment that would likely fail, instead exploring more targeted therapies and averting the risk of worsening the patient's condition.")
                ),
                
                # --- Section for Public Health Officers ---
@@ -467,7 +585,7 @@ ui <- fluidPage(
              )
     )
   ) 
-) 
+)
 
 # --- 6. Shiny Server (Backend Logic) ---
 server <- function(input, output, session) {
@@ -504,6 +622,9 @@ server <- function(input, output, session) {
       filtered_data <- filtered_data %>% dplyr::filter(Gender == input$gender_global_cluster)
     }
     
+    # --- ADDITION: Calculate n ---
+    n_isolates <- n_distinct(filtered_data$Isolate.ID)
+    
     summary_data <- filtered_data %>%
       dplyr::distinct(Isolate.ID, .keep_all = TRUE) %>%
       dplyr::count(iso_a3, Cluster) %>%
@@ -512,10 +633,14 @@ server <- function(input, output, session) {
       dplyr::ungroup() %>%
       dplyr::mutate(Dominant_Cluster = as.factor(Cluster))
     
-    world_map %>% dplyr::left_join(summary_data, by = "iso_a3")
+    map_data <- world_map %>% dplyr::left_join(summary_data, by = "iso_a3")
+    
+    # --- MODIFICATION: Return a list with map data and the count ---
+    return(list(map_data = map_data, n_isolates = n_isolates))
   })
   
   map_data_global_resistance <- reactive({
+    # ... (similar filtering logic as above) ...
     req(input$species_global_res, input$drug_choice_global_res, input$year_range_global, input$age_global_res, input$gender_global_res)
     
     filtered_data <- all_data_final %>%
@@ -533,7 +658,9 @@ server <- function(input, output, session) {
       filtered_data <- filtered_data %>% dplyr::filter(Gender == input$gender_global_res)
     }
     
-    # --- MODIFICATION: More robust prevalence calculation ---
+    # --- ADDITION: Calculate n ---
+    n_isolates <- n_distinct(filtered_data$Isolate.ID)
+    
     summary_data <- filtered_data %>%
       dplyr::group_by(iso_a3) %>%
       dplyr::summarise(
@@ -541,39 +668,151 @@ server <- function(input, output, session) {
         .groups = 'drop'
       )
     
-    world_map %>% dplyr::left_join(summary_data, by = "iso_a3")
+    map_data <- world_map %>% dplyr::left_join(summary_data, by = "iso_a3")
+    
+    # --- MODIFICATION: Return a list with map data and the count ---
+    return(list(map_data = map_data, n_isolates = n_isolates))
   })
   
-  output$cluster_map_global <- renderPlot({ 
-    ggplot(data = map_data_global_cluster()) + 
+  output$cluster_map_global <- renderPlot({
+    # --- MODIFICATION: Use the list and add caption ---
+    plot_info <- map_data_global_cluster()
+    n_caption <- paste("Total number of isolates:", format(plot_info$n_isolates, big.mark = ","))
+    
+    ggplot(data = plot_info$map_data) + 
       geom_sf(aes(geometry = geometry, fill = Dominant_Cluster), color="white", linewidth=0.1) + 
       scale_fill_viridis_d(na.value = "grey90", name = "Dominant Cluster") + 
       labs(title = "Dominant Resistance Cluster by Country", 
-           subtitle = paste(input$species_global_cluster, "|", paste(input$year_range_global, collapse = "-"))) + 
+           subtitle = paste(input$species_global_cluster, "|", paste(input$year_range_global, collapse = "-")),
+           caption = n_caption) + # Add caption
       theme_void() + 
       theme(legend.position = "bottom") 
   })
   
-  output$resistance_map_global <- renderPlot({ 
-    ggplot(data = map_data_global_resistance()) + 
+  output$resistance_map_global <- renderPlot({
+    # --- MODIFICATION: Use the list and add caption ---
+    plot_info <- map_data_global_resistance()
+    n_caption <- paste("Total number of isolates:", format(plot_info$n_isolates, big.mark = ","))
+    
+    ggplot(data = plot_info$map_data) + 
       geom_sf(aes(geometry = geometry, fill = Prevalence), color="white", linewidth=0.1) + 
       scale_fill_viridis_c(option = "magma", direction = -1, labels = scales::percent, na.value = "grey90", name = "Resistance") + 
       labs(title = "Resistance Prevalence by Country", 
-           subtitle = paste(input$species_global_res, "|", input$drug_choice_global_res, "|", paste(input$year_range_global, collapse = "-"))) + 
+           subtitle = paste(input$species_global_res, "|", input$drug_choice_global_res, "|", paste(input$year_range_global, collapse = "-")),
+           caption = n_caption) + # Add caption
       theme_void() + 
       theme(legend.position = "bottom") 
   })
   
-  output$resistance_heatmap_display <- render_gt({
+  # 1. (NEW) Reactive expression to prepare data for the main heatmap table
+  heatmap_data_reactive <- reactive({
+    resistance_probs %>%
+      dplyr::group_by(Antibiotic_Class, Class) %>%
+      dplyr::summarise(Probability = mean(Probability, na.rm = TRUE), .groups = 'drop') %>%
+      tidyr::pivot_wider(names_from = Class, values_from = Probability) %>%
+      dplyr::arrange(Antibiotic_Class)
+  })
+  
+  # 2. (MODIFIED) Replace render_gt with renderDT to create an interactive table
+  heatmap_source_data <- reactive({
     req(input$species_heatmap)
-    switch(input$species_heatmap,
-           "a_baumannii" = a_baumannii_heatmap,
-           "e_faecium" = e_faecium_heatmap,
-           "e_spp" = e_spp_heatmap,
-           "k_pneumoniae" = k_pneumoniae_heatmap,
-           "p_aeruginosa" = p_aeruginosa_heatmap,
-           "s_aureus" = s_aureus_heatmap
+    
+    # 1. First, select the appropriate pre-loaded 'gt_tbl' object based on user input
+    gt_object <- switch(input$species_heatmap,
+                        "a_baumannii" = a_baumannii_heatmap,
+                        "e_faecium"   = e_faecium_heatmap,
+                        "e_spp"       = e_spp_heatmap,
+                        "k_pneumoniae"  = k_pneumoniae_heatmap,
+                        "p_aeruginosa"  = p_aeruginosa_heatmap,
+                        "s_aureus"    = s_aureus_heatmap
     )
+    
+    # 2. Extract the underlying data frame from the selected gt object.
+    #    This is the key step that fixes the error.
+    data_frame <- gt_object$`_data`
+    
+    return(data_frame)
+  })
+  
+  # 2. (MODIFIED) Render the interactive DT table from the selected source data.
+  output$resistance_heatmap_display <- renderDT({
+    
+    dt_data <- heatmap_source_data()
+    cluster_cols <- colnames(dt_data)[-1] # Get cluster columns for formatting
+    
+    datatable(
+      dt_data,
+      class = 'cell-border stripe hover',
+      selection = 'none',
+      rownames = FALSE,
+      options = list(
+        dom = 't', 
+        ordering = FALSE, 
+        pageLength = nrow(dt_data),
+        scrollX = TRUE),
+      # This JavaScript sends cell click info back to Shiny
+      callback = JS(
+        "table.on('click', 'td:not(:first-child)', function() {",
+        "  var class_name = $(this).closest('tr').find('td:first').text();",
+        "  var col_idx = $(this).index();",
+        "  var cluster_name = $(this).closest('table').find('th').eq(col_idx).text();",
+        "  if(class_name && cluster_name) {",
+        "    Shiny.setInputValue('heatmap_cell_clicked', { class: class_name, cluster: cluster_name, nonce: Math.random() });",
+        "  }",
+        "});"
+      )
+    ) %>%
+      formatStyle(
+        columns = cluster_cols,
+        backgroundColor = styleInterval(c(0.2, 0.4, 0.6, 0.8), c('#FEF0D9', '#FDCC8A', '#FC8D59', '#E34A33', '#B30000')),
+        color = styleInterval(0.5, c('black', 'white'))
+      ) %>%
+      formatPercentage(columns = cluster_cols, digits = 0)
+  })
+  
+  # 3. (UNCHANGED) The observer for the drill-down modal.
+  # This part still uses your global 'resistance_probs' object as requested.
+  observeEvent(input$heatmap_cell_clicked, {
+    
+    click_info <- input$heatmap_cell_clicked
+    
+    # --- FIX: Swap the variables to match your data structure ---
+    # The value from the column header (the Antibiotic Class) is in 'click_info$cluster'
+    # The value from the row name (the Resistance Cluster) is in 'click_info$class'
+    class_name <- click_info$cluster
+    cluster_name <- click_info$class
+    
+    # --- (You can remove the debugging print statements now) ---
+    
+    drilldown_data <- resistance_probs %>%
+      dplyr::filter(
+        Antibiotic_Class == class_name,
+        Class == cluster_name
+      )
+    
+    # (The rest of your code is correct and does not need to be changed)
+    drilldown_plot <- ggplot(drilldown_data, aes(x = factor(Antibiotic, levels = Antibiotic), y = Probability, fill = Probability)) +
+      geom_col(show.legend = FALSE) +
+      geom_text(aes(label = scales::percent(Probability, accuracy = 1)), hjust = -0.2, size = 4) +
+      coord_flip() +
+      scale_fill_viridis_c(option = "magma", direction = -1) +
+      scale_y_continuous(labels = scales::percent, limits = c(0, 1.1), breaks = seq(0, 1, 0.2)) +
+      labs(
+        title = paste("Resistance within Class:", class_name),
+        subtitle = paste("Showing all species for Cluster:", cluster_name),
+        x = NULL,
+        y = "Prevalence of Resistance"
+      ) +
+      theme_minimal(base_size = 14) +
+      theme(panel.grid.major.y = element_blank(), panel.grid.minor.x = element_blank(), plot.title = element_text(face = "bold"))
+    
+    showModal(modalDialog(
+      title = "Detailed Resistance Profile",
+      renderPlot(drilldown_plot),
+      easyClose = TRUE,
+      footer = modalButton("Close"),
+      size = "l"
+    ))
   })
   
   # === Phenotype Resistance Trends Tab ===
@@ -634,6 +873,10 @@ server <- function(input, output, session) {
     plot_data <- filtered_data_pheno()
     if (nrow(plot_data) == 0) return(ggplot() + labs(title = "No data available for this selection") + theme_void())
     
+    # --- ADDITION: Calculate n and create caption ---
+    n_isolates <- n_distinct(plot_data$Isolate.ID)
+    n_caption <- paste("Total number of isolates:", format(n_isolates, big.mark = ","))
+    
     plot_data_summary <- plot_data %>%
       dplyr::distinct(Isolate.ID, .keep_all = TRUE) %>%
       dplyr::count(Year, Cluster) %>%
@@ -656,7 +899,8 @@ server <- function(input, output, session) {
         subtitle = paste("Location:", location_label),
         x = "Year",
         y = "Proportion of Isolates",
-        fill = "Cluster"
+        fill = "Cluster",
+        caption = n_caption # Add caption
       ) +
       theme_minimal(base_size = 14) +
       theme(legend.position = "bottom")
@@ -802,13 +1046,17 @@ server <- function(input, output, session) {
       
       theme_minimal(base_size = 14) +
       
-      theme(legend.position = "bottom")
+      theme(legend.position = "bottom") +
+      geom_vline(last_actual_point$Year, linetype = "dashed", colour = "brown")
     
   })
   
   output$forecast_log <- renderText({ req(forecast_data()); forecast_data()$log })
   
 }
+
+
+
 
 # --- 7. Run the Shiny App ---
 shinyApp(ui = ui, server = server)
