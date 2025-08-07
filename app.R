@@ -291,15 +291,15 @@ ui <- fluidPage(
                
                div(class = "guide-section",
                    h4("About This Project"),
-                   p("This dashboard provides an interactive platform for exploring global antimicrobial resistance (AMR) trends. It is designed to help clinicians, public health officials, and researchers visualise complex surveillance data."),
+                   p("This dashboard provides an interactive platform for exploring global antimicrobial resistance (AMR) trends for the six ESKAPE pathogens. It is designed to help clinicians, public health officials, and researchers visualise complex surveillance data."),
                    p("This work was made possible by ", strong("Wellcome Trust"), " with access to critical data from ", strong("Pfizer"), " via the ", strong("Vivli"), " data sharing platform. We are grateful for their commitment to advancing AMR research.")
                ),
                
                # --- NEW SECTION ---
                div(class = "guide-section",
                    h4("🗺️ Navigating the Dashboard"),
-                   p(strong("Global Overview:"), " Explore interactive world maps showing the prevalence of different resistance clusters and specific antibiotic resistance rates."),
                    p(strong("Resistance Profiles:"), " View detailed heatmaps that show the specific antibiotic susceptibility patterns for each identified resistance cluster."),
+                   p(strong("Global Overview:"), " Explore interactive world maps showing the prevalence of different resistance clusters and specific antibiotic resistance rates."),
                    p(strong("Phenotype Resistance Trends:"), " Track how resistance to individual antibiotics has changed over time in different regions."),
                    p(strong("Forecast Tool:"), " Use a predictive model to forecast the prevalence of resistance clusters in the coming years."),
                    p(strong("Patient Risk Predictor:"), " Input patient details to predict the probability of their infection belonging to a specific resistance cluster."),
@@ -330,6 +330,117 @@ ui <- fluidPage(
                    p("This tool is intended for surveillance and research purposes only.")
                )
              )
+    ),
+    tabPanel("📖 How-To Guide",
+             fluidPage(
+               div(class = "well",
+                   h2("📚 How to Use This Dashboard", style = "text-align: center; color: #2c3e50;"),
+                   br()
+               ),
+               
+               # --- NEW --- Disclaimer Box
+               div(class = "disclaimer-box",
+                   h4("⚠️ Disclaimer"),
+                   p("This dashboard demonstrates a novel analytical approach using available surveillance data. For clinical decision support, implementation would require:"),
+                   tags$ol(
+                     style = "margin-left: 20px;", # Indent the list
+                     tags$li("More representative local/regional datasets,"),
+                     tags$li("Integration with clinical context including suspected infection aetiology, and"),
+                     tags$li("Validation against patient outcomes.")
+                   ),
+                   p(strong("The methodology shown here provides a framework for such clinical applications."))
+               ),
+               # --- END NEW ---
+               
+               # --- Section for Clinicians ---
+               div(class = "guide-section",
+                   h4("🧑⚕️ For the Clinician at the Bedside"),
+                   p("A 14-year-old boy arrives at an Emergency Room in New Delhi with a suspected soft tissue infection. The doctor needs to prescribe antibiotics now, days before lab results will be ready."),
+                   p("The go-to choice is a broad-spectrum antibiotic, but the doctor first consults the ", strong("Patient Risk Predictor"), " tab. By entering the patient's details, the doctor sees a high probability that the infection belongs to an extensively drug-resistant (XDR) cluster."),
+                   p(strong("Outcome:"), " The doctor is provided with a clinical support tool that can help to avoid a first-line treatment that would likely fail, instead exploring more targeted therapies and averting the risk of worsening the patient's condition.")
+               ),
+               
+               # --- Section for Public Health Officers ---
+               div(class = "guide-section",
+                   h4("🔬 For the Public Health Surveillance Officer"),
+                   p("An officer is alerted to a rumoured spike in carbapenem resistance in Northern England."),
+                   p("They open the ", strong("Global Overview"), " tab and filter for the UK. They see that the dominant cluster in that region is indeed a known carbapenem-resistant type. Curious, they switch to the ", strong("Phenotype Resistance Trends"), " tab. Using the latest data, they confirm not only that carbapenem resistance is rising, but that this specific cluster has grown alongside it. A quick look at the ", strong("Forecast Tool"), " shows this trend is predicted to continue, highlighting the urgency of the issue."),
+                   p(strong("Outcome:"), " The officer can quickly validate a public health concern, understand its scale, and use the forecast to inform regional infection control strategies and public health alerts.")
+               ),
+               
+               # --- Section for Researchers ---
+               div(class = "guide-section",
+                   h4("👩🔬 For the Clinical Researcher"),
+                   p("A researcher is planning their next grant proposal on Acinetobacter baumannii."),
+                   p("They use the ", strong("Forecast Tool"), " to identify which resistance clusters are predicted to become most prevalent over the next five years. They notice a specific XDR cluster is expected to rise sharply. Intrigued, they examine its profile in the ", strong("Resistance Profiles"), " tab and see an unusual pattern of resistance to aminoglycosides. They go onto the ", strong("Patient Risk Predictor "),"tab and see how predicted membership in this cluster changes according to age, gender, location, and department."),
+                   p(strong("Outcome:"), " The researcher has identified a high-impact, emerging resistance pattern to focus their research on, strengthening their grant application with data-driven evidence and ensuring their work addresses a future clinical need.")
+               )
+             )
+    ),
+    
+    tabPanel("🧬 Glossary",
+             fluidPage(
+               div(class = "well",
+                   h2("🔬 Glossary of AMR Terms", style = "text-align: center; color: #2c3e50;"),
+                   br()
+               ),
+               
+               # --- Resistance Categories ---
+               div(class = "guide-section",
+                   h4("🛡️ Resistance Categories"),
+                   p(strong("MDR (Multi-Drug Resistant):"), " Bacteria that are resistant to at least one antibiotic in three or more different classes."),
+                   p(strong("XDR (Extensively Drug-Resistant):"), " Bacteria that are resistant to all but two or fewer antibiotic classes, making them extremely difficult to treat.")
+               ),
+               
+               # --- Specific Resistance Types ---
+               div(class = "guide-section",
+                   h4("🧪 Specific Resistance Types"),
+                   p(strong("CRAB (Carbapenem-Resistant Acinetobacter baumannii):"), " A strain of Acinetobacter baumannii that is resistant to carbapenems, a class of last-resort antibiotics."),
+                   p(strong("CRE (Carbapenem-Resistant Enterobacterales):"), " A family of bacteria (like E. coli and Klebsiella) that have developed resistance to carbapenem antibiotics."),
+                   p(strong("CRP (Carbapenem-Resistant Pseudomonas):"), " A strain of Pseudomonas aeruginosa resistant to carbapenems, often found in hospital settings."),
+                   p(strong("ESBL (Extended-Spectrum Beta-Lactamase):"), " Enzymes produced by some bacteria that allow them to break down and resist many common antibiotics, including penicillins and cephalosporins."),
+                   p(strong("MRSA (Methicillin-Resistant Staphylococcus aureus):"), " A strain of Staphylococcus aureus that is resistant to methicillin and other related antibiotics, making it a common and challenging hospital-acquired infection.")
+               ),
+               
+               # --- Infection Acquisition Types ---
+               div(class = "guide-section",
+                   h4("🏥 Infection Acquisition"),
+                   p(strong("HA (Hospital-Acquired):"), " An infection that is contracted within a hospital or other healthcare facility."),
+                   p(strong("CA (Community-Acquired):"), " An infection contracted by a person outside of a healthcare setting.")
+               )
+             )
+    ),
+    tabPanel("🔬 Resistance Profiles", 
+             sidebarLayout( 
+               sidebarPanel( 
+                 div(class = "well",
+                     h4("🧪 Profile Selection"), 
+                     
+                     # This selectInput now includes a 'selected' argument to ensure
+                     # a heatmap loads by default when the tab is opened.
+                     selectInput("species_heatmap", "Select Species to View Profile:", 
+                                 choices = c("A. baumannii" = "a_baumannii", 
+                                             "E. faecium" = "e_faecium", 
+                                             "E. spp" = "e_spp", 
+                                             "K. pneumoniae" = "k_pneumoniae", 
+                                             "P. aeruginosa" = "p_aeruginosa", 
+                                             "S. aureus" = "s_aureus"),
+                                 selected = "a_baumannii"  # Default value
+                     )
+                 )
+               ), 
+               
+               mainPanel( 
+                 div(style = "padding: 20px;",
+                     # Title and instructions for the new interactive table
+                     h4("Resistance Prevalence by Class and Cluster"),
+                     p("Click on any prevalence value to see a detailed breakdown by antibiotic.", style = "color: #555;"),
+                     
+                     # The DTOutput to display the interactive heatmap
+                     DTOutput(outputId = "resistance_heatmap_display")
+                 )
+               ) 
+             ) 
     ),
     
     tabPanel("🌍 Global Overview", 
@@ -380,38 +491,6 @@ ui <- fluidPage(
              ) 
     ), 
     
-    tabPanel("🔬 Resistance Profiles", 
-             sidebarLayout( 
-               sidebarPanel( 
-                 div(class = "well",
-                     h4("🧪 Profile Selection"), 
-                     
-                     # This selectInput now includes a 'selected' argument to ensure
-                     # a heatmap loads by default when the tab is opened.
-                     selectInput("species_heatmap", "Select Species to View Profile:", 
-                                 choices = c("A. baumannii" = "a_baumannii", 
-                                             "E. faecium" = "e_faecium", 
-                                             "E. spp" = "e_spp", 
-                                             "K. pneumoniae" = "k_pneumoniae", 
-                                             "P. aeruginosa" = "p_aeruginosa", 
-                                             "S. aureus" = "s_aureus"),
-                                 selected = "a_baumannii"  # Default value
-                     )
-                 )
-               ), 
-               
-               mainPanel( 
-                 div(style = "padding: 20px;",
-                     # Title and instructions for the new interactive table
-                     h4("Resistance Prevalence by Class and Cluster"),
-                     p("Click on any prevalence value to see a detailed breakdown by antibiotic.", style = "color: #555;"),
-                     
-                     # The DTOutput to display the interactive heatmap
-                     DTOutput(outputId = "resistance_heatmap_display")
-                 )
-               ) 
-             ) 
-    ),
     
     tabPanel("📈 Phenotype Resistance Trends", 
              sidebarLayout( 
@@ -503,88 +582,8 @@ ui <- fluidPage(
                  )
                ) 
              ) 
-    ),
-    
-    tabPanel("📖 How-To Guide",
-             fluidPage(
-               div(class = "well",
-                   h2("📚 How to Use This Dashboard", style = "text-align: center; color: #2c3e50;"),
-                   br()
-               ),
-               
-               # --- NEW --- Disclaimer Box
-               div(class = "disclaimer-box",
-                   h4("⚠️ Disclaimer"),
-                   p("This dashboard demonstrates a novel analytical approach using available surveillance data. For clinical decision support, implementation would require:"),
-                   tags$ol(
-                     style = "margin-left: 20px;", # Indent the list
-                     tags$li("More representative local/regional datasets,"),
-                     tags$li("Integration with clinical context including suspected infection aetiology, and"),
-                     tags$li("Validation against patient outcomes.")
-                   ),
-                   p(strong("The methodology shown here provides a framework for such clinical applications."))
-               ),
-               # --- END NEW ---
-               
-               # --- Section for Clinicians ---
-               div(class = "guide-section",
-                   h4("🧑⚕️ For the Clinician at the Bedside"),
-                   p("A 14-year-old boy arrives at an Emergency Room in New Delhi with a suspected soft tissue infection. The doctor needs to prescribe antibiotics now, days before lab results will be ready."),
-                   p("The go-to choice is a broad-spectrum antibiotic, but the doctor first consults the ", strong("Patient Risk Predictor"), " tab. By entering the patient's details, the doctor sees a high probability that the infection belongs to an extensively drug-resistant (XDR) cluster."),
-                   p(strong("Outcome:"), " The doctor is provided with a clinical support tool that can help to avoid a first-line treatment that would likely fail, instead exploring more targeted therapies and averting the risk of worsening the patient's condition.")
-               ),
-               
-               # --- Section for Public Health Officers ---
-               div(class = "guide-section",
-                   h4("🔬 For the Public Health Surveillance Officer"),
-                   p("An officer is alerted to a rumoured spike in carbapenem resistance in Northern England."),
-                   p("They open the ", strong("Global Overview"), " tab and filter for the UK. They see that the dominant cluster in that region is indeed a known carbapenem-resistant type. Curious, they switch to the ", strong("Phenotype Resistance Trends"), " tab. Using the latest data, they confirm not only that carbapenem resistance is rising, but that this specific cluster has grown alongside it. A quick look at the ", strong("Forecast Tool"), " shows this trend is predicted to continue, highlighting the urgency of the issue."),
-                   p(strong("Outcome:"), " The officer can quickly validate a public health concern, understand its scale, and use the forecast to inform regional infection control strategies and public health alerts.")
-               ),
-               
-               # --- Section for Researchers ---
-               div(class = "guide-section",
-                   h4("👩🔬 For the Clinical Researcher"),
-                   p("A researcher is planning their next grant proposal on Acinetobacter baumannii."),
-                   p("They use the ", strong("Forecast Tool"), " to identify which resistance clusters are predicted to become most prevalent over the next five years. They notice a specific XDR cluster is expected to rise sharply. Intrigued, they examine its profile in the ", strong("Resistance Profiles"), " tab and see an unusual pattern of resistance to aminoglycosides."),
-                   p(strong("Outcome:"), " The researcher has identified a high-impact, emerging resistance pattern to focus their research on, strengthening their grant application with data-driven evidence and ensuring their work addresses a future clinical need.")
-               )
-             )
-    ),
-    
-    tabPanel("🧬 Glossary",
-             fluidPage(
-               div(class = "well",
-                   h2("🔬 Glossary of AMR Terms", style = "text-align: center; color: #2c3e50;"),
-                   br()
-               ),
-               
-               # --- Resistance Categories ---
-               div(class = "guide-section",
-                   h4("🛡️ Resistance Categories"),
-                   p(strong("MDR (Multi-Drug Resistant):"), " Bacteria that are resistant to at least one antibiotic in three or more different classes."),
-                   p(strong("XDR (Extensively Drug-Resistant):"), " Bacteria that are resistant to all but two or fewer antibiotic classes, making them extremely difficult to treat.")
-               ),
-               
-               # --- Specific Resistance Types ---
-               div(class = "guide-section",
-                   h4("🧪 Specific Resistance Types"),
-                   p(strong("CRAB (Carbapenem-Resistant Acinetobacter baumannii):"), " A strain of Acinetobacter baumannii that is resistant to carbapenems, a class of last-resort antibiotics."),
-                   p(strong("CRE (Carbapenem-Resistant Enterobacterales):"), " A family of bacteria (like E. coli and Klebsiella) that have developed resistance to carbapenem antibiotics."),
-                   p(strong("CRP (Carbapenem-Resistant Pseudomonas):"), " A strain of Pseudomonas aeruginosa resistant to carbapenems, often found in hospital settings."),
-                   p(strong("ESBL (Extended-Spectrum Beta-Lactamase):"), " Enzymes produced by some bacteria that allow them to break down and resist many common antibiotics, including penicillins and cephalosporins."),
-                   p(strong("MRSA (Methicillin-Resistant Staphylococcus aureus):"), " A strain of Staphylococcus aureus that is resistant to methicillin and other related antibiotics, making it a common and challenging hospital-acquired infection.")
-               ),
-               
-               # --- Infection Acquisition Types ---
-               div(class = "guide-section",
-                   h4("🏥 Infection Acquisition"),
-                   p(strong("HA (Hospital-Acquired):"), " An infection that is contracted within a hospital or other healthcare facility."),
-                   p(strong("CA (Community-Acquired):"), " An infection contracted by a person outside of a healthcare setting.")
-               )
-             )
     )
-  ) 
+  )
 )
 
 # --- 6. Shiny Server (Backend Logic) ---
@@ -1046,8 +1045,7 @@ server <- function(input, output, session) {
       
       theme_minimal(base_size = 14) +
       
-      theme(legend.position = "bottom") +
-      geom_vline(last_actual_point$Year, linetype = "dashed", colour = "brown")
+      theme(legend.position = "bottom") 
     
   })
   
